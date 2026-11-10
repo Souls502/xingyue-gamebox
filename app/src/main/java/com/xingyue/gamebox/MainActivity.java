@@ -1,4 +1,3 @@
-
 package com.xingyue.gamebox;
 
 import android.app.Activity;
