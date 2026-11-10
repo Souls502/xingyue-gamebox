@@ -1,3 +1,4 @@
+
 package com.xingyue.gamebox;
 
 import android.app.Activity;
@@ -29,14 +30,15 @@ public class MainActivity extends Activity {
     };
 
     String[] icons = {"🚀","⚔️","🏝️","🌙","🏎️","🐱"};
+
     String[] downloadUrls = {
-    "",
-    "",
-    "",
-    "https://github.com/Souls502/xingyue-games/releases/download/v1.0/2.apk",
-    "",
-    ""
-};
+        "",
+        "",
+        "",
+        "https://github.com/Souls502/xingyue-games/releases/download/v1.0/2.apk",
+        "",
+        ""
+    };
 
     int purple = Color.rgb(19,14,35);
 
@@ -82,6 +84,7 @@ public class MainActivity extends Activity {
             "发现好玩的游戏 · 开启星月之旅",
             14,0xFFB9AED5
         );
+
         LinearLayout.LayoutParams sp =
             new LinearLayout.LayoutParams(-1,-2);
         sp.topMargin=8;
@@ -99,6 +102,7 @@ public class MainActivity extends Activity {
 
         TextView heading = label("游戏分类",21,Color.WHITE);
         heading.setTypeface(null,Typeface.BOLD);
+
         LinearLayout.LayoutParams hp =
             new LinearLayout.LayoutParams(-1,-2);
         hp.topMargin=25;
@@ -150,10 +154,12 @@ public class MainActivity extends Activity {
         search.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(
                 CharSequence s,int st,int c,int a) {}
+
             public void onTextChanged(
                 CharSequence s,int st,int before,int count) {
                 render();
             }
+
             public void afterTextChanged(Editable e) {}
         });
 
@@ -200,6 +206,7 @@ public class MainActivity extends Activity {
             info.addView(name);
 
             TextView type = label(types[i],13,0xFFB9AED5);
+
             LinearLayout.LayoutParams tp =
                 new LinearLayout.LayoutParams(-1,-2);
             tp.topMargin=5;
@@ -209,82 +216,75 @@ public class MainActivity extends Activity {
             card.addView(detail);
 
             final int gameIndex = i;
-card.setOnClickListener(v -> {
-    showDetail(gameIndex);
-});
-void showDetail(int index) {
-    ScrollView scroll = new ScrollView(this);
 
-    LinearLayout root = new LinearLayout(this);
-    root.setOrientation(1);
-    root.setPadding(24, 30, 24, 30);
-    root.setBackgroundColor(purple);
-
-    scroll.addView(root);
-    setContentView(scroll);
-
-    TextView back = label("‹ 返回游戏列表", 16, 0xFFD5A7FF);
-    root.addView(back);
-
-    back.setOnClickListener(v -> home());
-
-    TextView icon = label(icons[index], 65, Color.WHITE);
-    icon.setGravity(Gravity.CENTER);
-
-    LinearLayout.LayoutParams ip =
-        new LinearLayout.LayoutParams(-1, -2);
-    ip.topMargin = 35;
-    root.addView(icon, ip);
-
-    TextView title = label(names[index], 26, Color.WHITE);
-    title.setTypeface(null, Typeface.BOLD);
-    title.setGravity(Gravity.CENTER);
-
-    root.addView(title);
-
-    TextView type = label(types[index], 15, 0xFFB9AED5);
-    type.setGravity(Gravity.CENTER);
-
-    LinearLayout.LayoutParams tp =
-        new LinearLayout.LayoutParams(-1, -2);
-    tp.topMargin = 12;
-    root.addView(type, tp);
-
-    TextView desc = label(
-        "欢迎来到星月游戏盒！\n\n游戏分类：" + types[index]
-        + "\n\n更多游戏介绍和截图将陆续更新。",
-        16, Color.WHITE
-    );
-
-    LinearLayout.LayoutParams dp =
-        new LinearLayout.LayoutParams(-1, -2);
-    dp.topMargin = 30;
-    root.addView(desc, dp);
-
-    TextView download = label("立即下载", 18, Color.WHITE);
-    download.setGravity(Gravity.CENTER);
-    download.setPadding(20, 16, 20, 16);
-    download.setBackground(shape(0xFF7545B5));
-
-    LinearLayout.LayoutParams bp =
-        new LinearLayout.LayoutParams(-1, -2);
-    bp.topMargin = 35;
-    root.addView(download, bp);
-
-    download.setOnClickListener(v -> {
-        if (!downloadUrls[index].isEmpty()) {
-            Intent intent = new Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse(downloadUrls[index])
-            );
-            startActivity(intent);
-        } else {
-            Toast.makeText(this,
-                "暂未提供下载",
-                Toast.LENGTH_SHORT).show();
+            card.setOnClickListener(v -> {
+                showDetail(gameIndex);
+            });
         }
-    });
-}            
-        }
+    }
+
+    void showDetail(int index) {
+        ScrollView scroll = new ScrollView(this);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(1);
+        root.setPadding(24,30,24,30);
+        root.setBackgroundColor(purple);
+
+        scroll.addView(root);
+        setContentView(scroll);
+
+        TextView back = label("‹ 返回游戏列表",16,0xFFD5A7FF);
+        root.addView(back);
+
+        back.setOnClickListener(v -> home());
+
+        TextView icon = label(icons[index],65,Color.WHITE);
+        icon.setGravity(Gravity.CENTER);
+        root.addView(icon);
+
+        TextView title = label(names[index],26,Color.WHITE);
+        title.setTypeface(null,Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        root.addView(title);
+
+        TextView type = label(types[index],15,0xFFB9AED5);
+        type.setGravity(Gravity.CENTER);
+        root.addView(type);
+
+        TextView desc = label(
+            "欢迎来到星月游戏盒！\n\n游戏分类：" + types[index]
+            + "\n\n更多游戏介绍和截图将陆续更新。",
+            16,Color.WHITE
+        );
+
+        LinearLayout.LayoutParams dp =
+            new LinearLayout.LayoutParams(-1,-2);
+        dp.topMargin=30;
+        root.addView(desc,dp);
+
+        TextView download = label("立即下载",18,Color.WHITE);
+        download.setGravity(Gravity.CENTER);
+        download.setPadding(20,16,20,16);
+        download.setBackground(shape(0xFF7545B5));
+
+        LinearLayout.LayoutParams bp =
+            new LinearLayout.LayoutParams(-1,-2);
+        bp.topMargin=35;
+        root.addView(download,bp);
+
+        download.setOnClickListener(v -> {
+            if(!downloadUrls[index].isEmpty()) {
+                Intent intent = new Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse(downloadUrls[index])
+                );
+                startActivity(intent);
+            } else {
+                Toast.makeText(this,
+                    "暂未提供下载",
+                    Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 }
