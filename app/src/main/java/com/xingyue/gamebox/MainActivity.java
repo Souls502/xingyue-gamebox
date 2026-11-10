@@ -2,6 +2,8 @@ package com.xingyue.gamebox;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -27,6 +29,14 @@ public class MainActivity extends Activity {
     };
 
     String[] icons = {"🚀","⚔️","🏝️","🌙","🏎️","🐱"};
+    String[] downloadUrls = {
+    "",
+    "",
+    "",
+    "https://github.com/Souls502/xingyue-games/releases/download/v1.0/2.apk",
+    "",
+    ""
+};
 
     int purple = Color.rgb(19,14,35);
 
@@ -199,11 +209,21 @@ public class MainActivity extends Activity {
             card.addView(detail);
 
             final String gameName = names[i];
-            card.setOnClickListener(v -> {
-                Toast.makeText(this,
-                    "游戏详情："+gameName,
-                    Toast.LENGTH_SHORT).show();
-            });
+final String downloadUrl = downloadUrls[i];
+
+card.setOnClickListener(v -> {
+    if (!downloadUrl.isEmpty()) {
+        Intent intent = new Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse(downloadUrl)
+        );
+        startActivity(intent);
+    } else {
+        Toast.makeText(this,
+            gameName + " 暂未提供下载",
+            Toast.LENGTH_SHORT).show();
+    }
+});
         }
     }
 }
