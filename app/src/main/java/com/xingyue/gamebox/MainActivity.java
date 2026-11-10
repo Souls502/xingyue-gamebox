@@ -6,11 +6,15 @@ import android.content.Intent;
 import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.*;
 import android.text.TextWatcher;
 import android.text.Editable;
+import android.util.TypedValue;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -19,6 +23,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
@@ -73,6 +78,127 @@ public class MainActivity extends Activity {
         t.setTextSize(size);
         t.setTextColor(color);
         return t;
+    }
+
+    int dp(float value) {
+        return (int) TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            value,
+            getResources().getDisplayMetrics()
+        );
+    }
+
+    // 在线加载封面图片
+    void loadCover(ImageView image, String imageUrl) {
+        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+            return;
+        }
+
+        image.setTag(imageUrl);
+
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+
+            try {
+                URL url = new URL(imageUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setConnectTimeout(12000);
+                conn.setReadTimeout(12000);
+                conn.setRequestMethod("GET");
+
+                try (InputStream stream = conn.getInputStream()) {
+                    Bitmap bitmap = BitmapFactory.decodeStream(stream);
+
+                    if (bitmap != null) {
+                        runOnUiThread(() -> {
+                            if (imageUrl.equals(image.getTag())) {
+                                image.setImageBitmap(bitmap);
+                            }
+                        });
+                    }
+                }
+
+            } catch (Exception e) {
+                // 图片加载失败时保留默认游戏图标
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+        }).start();
+    }
+
+    // 创建带默认图标的封面
+    FrameLayout createCover(
+        String iconText,
+        String coverUrl,
+        int width,
+        int height
+    ) {
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackground(shape(0xFF49346C));
+
+        ImageView image = new ImageView(this);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+
+        FrameLayout.LayoutParams imageParams =
+            new FrameLayout.LayoutParams(-1,-1);
+
+        frame.addView(image,imageParams);
+
+        TextView fallback = label(
+            iconText,
+            35,
+            Color.WHITE
+        );
+        fallback.setGravity(Gravity.CENTER);
+
+        FrameLayout.LayoutParams fallbackParams =
+            new FrameLayout.LayoutParams(-1,-1);
+
+        frame.addView(fallback,fallbackParams);
+
+        if (coverUrl != null && !coverUrl.isEmpty()) {
+            image.setTag(coverUrl);
+
+            new Thread(() -> {
+                HttpURLConnection conn = null;
+
+                try {
+                    URL url = new URL(coverUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(12000);
+                    conn.setReadTimeout(12000);
+
+                    try (InputStream stream = conn.getInputStream()) {
+                        Bitmap bitmap =
+                            BitmapFactory.decodeStream(stream);
+
+                        if (bitmap != null) {
+                            runOnUiThread(() -> {
+                                if (coverUrl.equals(image.getTag())) {
+                                    image.setImageBitmap(bitmap);
+                                    fallback.setVisibility(View.GONE);
+                                }
+                            });
+                        }
+                    }
+
+                } catch (Exception e) {
+                    // 保留默认图标
+                } finally {
+                    if (conn != null) {
+                        conn.disconnect();
+                    }
+                }
+            }).start();
+        }
+
+        frame.setLayoutParams(
+            new LinearLayout.LayoutParams(width,height)
+        );
+
+        return frame;
     }
 
     void loadGames() {
@@ -328,10 +454,14 @@ public class MainActivity extends Activity {
             cp.bottomMargin=12;
             list.addView(card,cp);
 
-            TextView icon = label(
-                gameIcon(game.type),35,Color.WHITE
+            FrameLayout cover = createCover(
+                gameIcon(game.type),
+                game.coverUrl,
+                dp(82),
+                dp(82)
             );
-            card.addView(icon);
+
+            card.addView(cover);
 
             LinearLayout info = new LinearLayout(this);
             info.setOrientation(1);
@@ -396,11 +526,18 @@ public class MainActivity extends Activity {
 
         back.setOnClickListener(v -> home());
 
-        TextView icon = label(
-            gameIcon(game.type),65,Color.WHITE
+        FrameLayout cover = createCover(
+            gameIcon(game.type),
+            game.coverUrl,
+            -1,
+            dp(210)
         );
-        icon.setGravity(Gravity.CENTER);
-        root.addView(icon);
+
+        LinearLayout.LayoutParams coverParams =
+            new LinearLayout.LayoutParams(-1,dp(210));
+        coverParams.topMargin=20;
+        coverParams.bottomMargin=18;
+        root.addView(cover,coverParams);
 
         TextView title = label(
             game.name,26,Color.WHITE
