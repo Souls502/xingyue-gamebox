@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
     <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="true"
         android:label="星月游戏盒"
+        android:icon="@drawable/file_00000000485881f5825c35fccdc3a6b5"
         android:theme="@android:style/Theme.Material.NoActionBar">
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-    </application>
-</manifest>
 
+        </activity>
+
+    </application>
+
+</manifest>
