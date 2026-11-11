@@ -1,6 +1,7 @@
 package com.xingyue.gamebox;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.content.Intent;
 import android.net.Uri;
@@ -63,6 +64,134 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(purple);
         home();
         loadGames();
+
+        // 启动时检查 APP 更新
+        checkForUpdate();
+    }
+
+    // 检查最新版本
+    void checkForUpdate() {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+
+            try {
+                URL url = new URL(
+                    SUPABASE_URL +
+                    "/rest/v1/app_releases?select=version,version_code,release_notes,apk_url&is_latest=eq.true&order=created_at.desc&limit=1"
+                );
+
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(15000);
+                conn.setRequestProperty("apikey", SUPABASE_KEY);
+                conn.setRequestProperty("Accept", "application/json");
+
+                int responseCode = conn.getResponseCode();
+
+                if (responseCode != 200) {
+                    return;
+                }
+
+                BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(
+                        conn.getInputStream(), "UTF-8"
+                    )
+                );
+
+                StringBuilder result = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    result.append(line);
+                }
+
+                reader.close();
+
+                JSONArray array =
+                    new JSONArray(result.toString());
+
+                if (array.length() == 0) {
+                    return;
+                }
+
+                JSONObject release = array.getJSONObject(0);
+
+                String version =
+                    release.optString("version", "");
+
+                int serverCode =
+                    release.optInt("version_code", 0);
+
+                String notes =
+                    release.optString("release_notes", "");
+
+                String apkUrl =
+                    release.optString("apk_url", "");
+
+                int currentCode =
+                    getPackageManager()
+                    .getPackageInfo(getPackageName(), 0)
+                    .versionCode;
+
+                if (serverCode > currentCode &&
+                    !apkUrl.isEmpty()) {
+
+                    runOnUiThread(() -> {
+                        showUpdateDialog(
+                            version,
+                            notes,
+                            apkUrl
+                        );
+                    });
+                }
+
+            } catch (Exception e) {
+                // 检查失败时不影响正常使用
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+        }).start();
+    }
+
+    // 显示更新提示
+    void showUpdateDialog(
+        String version,
+        String notes,
+        String apkUrl
+    ) {
+        if (isFinishing()) return;
+
+        if (notes == null || notes.trim().isEmpty()) {
+            notes = "优化功能，修复已知问题";
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle("✦ 发现新版本 " + version)
+            .setMessage(
+                "星月游戏盒有新版本可以更新！\n\n" +
+                "更新内容：\n" + notes +
+                "\n\n是否立即下载更新？"
+            )
+            .setPositiveButton("立即更新", (dialog, which) -> {
+                try {
+                    Intent intent = new Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(apkUrl)
+                    );
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Toast.makeText(
+                        this,
+                        "无法打开下载链接",
+                        Toast.LENGTH_SHORT
+                    ).show();
+                }
+            })
+            .setNegativeButton("稍后再说", null)
+            .show();
     }
 
     GradientDrawable shape(int color) {
