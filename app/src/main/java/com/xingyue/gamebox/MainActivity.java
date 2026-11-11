@@ -13,6 +13,9 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.MotionEvent;
+import android.view.inputmethod.InputMethodManager;
+import android.content.Context;
+import android.text.InputType;
 import android.widget.*;
 import android.text.TextWatcher;
 import android.text.Editable;
@@ -41,6 +44,8 @@ public class MainActivity extends Activity {
 
     ArrayList<Game> games = new ArrayList<>();
 
+    UserAuth userAuth;
+
     final String SUPABASE_URL =
         "https://vavsdizrdsvavioxsmjh.supabase.co";
 
@@ -49,7 +54,6 @@ public class MainActivity extends Activity {
 
     int purple = Color.rgb(19,14,35);
 
-    // 支持下拉刷新的主页面滚动容器
     class PullToRefreshScrollView extends ScrollView {
         float downY;
 
@@ -90,16 +94,207 @@ public class MainActivity extends Activity {
     @Override
     public void onCreate(Bundle b) {
         super.onCreate(b);
+
+        userAuth = new UserAuth(this);
+
         getWindow().setStatusBarColor(purple);
         getWindow().setNavigationBarColor(purple);
+
         home();
         loadGames();
-
-        // 启动时检查 APP 更新
         checkForUpdate();
     }
 
-    // 检查最新版本
+    // 用户中心
+    void showUserCenter() {
+        if (userAuth.isLoggedIn()) {
+            String email = userAuth.getEmail();
+            String userId = userAuth.getUserId();
+
+            String message =
+                "邮箱：" + email +
+                "\n\n用户 ID：" + userId;
+
+            new AlertDialog.Builder(this)
+                .setTitle("✦ 我的用户中心")
+                .setMessage(message)
+                .setPositiveButton("退出登录", (dialog, which) -> {
+                    new Thread(() -> {
+                        userAuth.logout();
+
+                        runOnUiThread(() -> {
+                            Toast.makeText(
+                                this,
+                                "已退出登录",
+                                Toast.LENGTH_SHORT
+                            ).show();
+                            home();
+                            loadGames();
+                        });
+                    }).start();
+                })
+                .setNegativeButton("返回", null)
+                .show();
+
+        } else {
+            new AlertDialog.Builder(this)
+                .setTitle("✦ 欢迎来到星月游戏盒")
+                .setMessage("登录后即可使用用户功能。")
+                .setPositiveButton("登录", (dialog, which) -> {
+                    showAuthDialog(false);
+                })
+                .setNeutralButton("注册账号", (dialog, which) -> {
+                    showAuthDialog(true);
+                })
+                .setNegativeButton("取消", null)
+                .show();
+        }
+    }
+
+    // 邮箱注册和登录
+    void showAuthDialog(boolean register) {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(1);
+        form.setPadding(
+            dp(22), dp(12), dp(22), dp(5)
+        );
+
+        EditText emailInput = new EditText(this);
+        emailInput.setSingleLine(true);
+        emailInput.setHint("请输入邮箱地址");
+        emailInput.setInputType(
+            InputType.TYPE_CLASS_TEXT |
+            InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        );
+        form.addView(emailInput);
+
+        EditText passwordInput = new EditText(this);
+        passwordInput.setSingleLine(true);
+        passwordInput.setHint("请输入密码");
+        passwordInput.setInputType(
+            InputType.TYPE_CLASS_TEXT |
+            InputType.TYPE_TEXT_VARIATION_PASSWORD
+        );
+
+        LinearLayout.LayoutParams passwordParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        passwordParams.topMargin = dp(10);
+        form.addView(passwordInput, passwordParams);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle(register ? "邮箱注册" : "邮箱登录")
+            .setView(form)
+            .setPositiveButton(
+                register ? "注册" : "登录", null
+            )
+            .setNegativeButton("取消", null)
+            .create();
+
+        dialog.setOnShowListener(d -> {
+            Button submit = dialog.getButton(
+                AlertDialog.BUTTON_POSITIVE
+            );
+
+            submit.setOnClickListener(v -> {
+                String email = emailInput.getText()
+                    .toString().trim();
+
+                String password = passwordInput.getText()
+                    .toString();
+
+                if (email.isEmpty() || password.isEmpty()) {
+                    Toast.makeText(
+                        this,
+                        "请填写邮箱和密码",
+                        Toast.LENGTH_SHORT
+                    ).show();
+                    return;
+                }
+
+                if (!email.contains("@") ||
+                    !email.contains(".")) {
+                    Toast.makeText(
+                        this,
+                        "请输入正确的邮箱地址",
+                        Toast.LENGTH_SHORT
+                    ).show();
+                    return;
+                }
+
+                if (password.length() < 6) {
+                    Toast.makeText(
+                        this,
+                        "密码至少需要 6 位",
+                        Toast.LENGTH_SHORT
+                    ).show();
+                    return;
+                }
+
+                submit.setEnabled(false);
+                submit.setText("请稍候...");
+
+                new Thread(() -> {
+                    try {
+                        String result;
+
+                        if (register) {
+                            result = userAuth.signUp(
+                                email, password
+                            );
+                        } else {
+                            result = userAuth.signIn(
+                                email, password
+                            );
+                        }
+
+                        final String message = result;
+
+                        runOnUiThread(() -> {
+                            dialog.dismiss();
+
+                            Toast.makeText(
+                                this,
+                                message,
+                                Toast.LENGTH_LONG
+                            ).show();
+
+                            if (userAuth.isLoggedIn()) {
+                                home();
+                                loadGames();
+                            }
+                        });
+
+                    } catch (Exception e) {
+                        String error = e.getMessage();
+
+                        if (error == null ||
+                            error.trim().isEmpty()) {
+                            error = "操作失败，请检查网络后重试。";
+                        }
+
+                        final String message = error;
+
+                        runOnUiThread(() -> {
+                            submit.setEnabled(true);
+                            submit.setText(
+                                register ? "注册" : "登录"
+                            );
+
+                            new AlertDialog.Builder(this)
+                                .setTitle("操作未成功")
+                                .setMessage(message)
+                                .setPositiveButton("知道了", null)
+                                .show();
+                        });
+                    }
+                }).start();
+            });
+        });
+
+        dialog.show();
+    }
+
+    // 检查 APP 更新
     void checkForUpdate() {
         new Thread(() -> {
             HttpURLConnection conn = null;
@@ -177,7 +372,7 @@ public class MainActivity extends Activity {
                 }
 
             } catch (Exception e) {
-                // 检查失败时不影响正常使用
+                // 检查失败不影响正常使用
             } finally {
                 if (conn != null) {
                     conn.disconnect();
@@ -278,7 +473,7 @@ public class MainActivity extends Activity {
                 }
 
             } catch (Exception e) {
-                // 图片加载失败时保留默认游戏图标
+                // 图片加载失败时保留默认图标
             } finally {
                 if (conn != null) {
                     conn.disconnect();
@@ -473,6 +668,27 @@ public class MainActivity extends Activity {
         TextView title = label("✦ 星月游戏盒",27,Color.WHITE);
         title.setTypeface(null,Typeface.BOLD);
         root.addView(title);
+
+        // 用户中心入口
+        TextView userButton = label(
+            userAuth.isLoggedIn()
+                ? "👤 我的用户中心"
+                : "👤 登录 / 注册",
+            15,
+            Color.WHITE
+        );
+
+        userButton.setGravity(Gravity.CENTER);
+        userButton.setPadding(16,13,16,13);
+        userButton.setBackground(shape(0xFF7545B5));
+
+        LinearLayout.LayoutParams userParams =
+            new LinearLayout.LayoutParams(-1,-2);
+        userParams.topMargin = 15;
+        userParams.bottomMargin = 12;
+        root.addView(userButton,userParams);
+
+        userButton.setOnClickListener(v -> showUserCenter());
 
         TextView sub = label(
             "发现好玩的游戏 · 开启星月之旅",
