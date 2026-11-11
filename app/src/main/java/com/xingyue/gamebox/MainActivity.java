@@ -12,6 +12,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
+import android.view.MotionEvent;
 import android.widget.*;
 import android.text.TextWatcher;
 import android.text.Editable;
@@ -36,6 +37,7 @@ public class MainActivity extends Activity {
     TextView status;
     String category = "全部";
     boolean loading = true;
+    boolean refreshingByGesture = false;
 
     ArrayList<Game> games = new ArrayList<>();
 
@@ -46,6 +48,34 @@ public class MainActivity extends Activity {
         "sb_publishable_r1RfRiRkwcDVOoOtO-Vj8w_sQAs2VIk";
 
     int purple = Color.rgb(19,14,35);
+
+    // 支持下拉刷新的主页面滚动容器
+    class PullToRefreshScrollView extends ScrollView {
+        float downY;
+
+        PullToRefreshScrollView() {
+            super(MainActivity.this);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                downY = event.getY();
+            } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                float distance = event.getY() - downY;
+
+                if (getScrollY() == 0 &&
+                    distance > dp(90) &&
+                    !loading) {
+
+                    refreshingByGesture = true;
+                    loadGames();
+                }
+            }
+
+            return super.onTouchEvent(event);
+        }
+    }
 
     static class Game {
         String name = "";
@@ -397,12 +427,22 @@ public class MainActivity extends Activity {
                     loading = false;
                     updateCategories();
                     render();
+
+                    if (refreshingByGesture) {
+                        refreshingByGesture = false;
+                        Toast.makeText(
+                            this,
+                            "游戏列表已更新",
+                            Toast.LENGTH_SHORT
+                        ).show();
+                    }
                 });
 
             } catch (Exception e) {
                 runOnUiThread(() -> {
                     loading = false;
                     render();
+                    refreshingByGesture = false;
                     Toast.makeText(
                         this,
                         "游戏加载失败，请检查网络或后台设置",
@@ -419,7 +459,8 @@ public class MainActivity extends Activity {
     }
 
     void home() {
-        ScrollView scroll = new ScrollView(this);
+        PullToRefreshScrollView scroll =
+            new PullToRefreshScrollView();
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(1);
@@ -443,6 +484,16 @@ public class MainActivity extends Activity {
         sp.topMargin=8;
         sp.bottomMargin=22;
         root.addView(sub,sp);
+
+        TextView refreshHint = label(
+            "↓ 下拉页面即可刷新游戏列表",
+            12,0xFFB9AED5
+        );
+
+        LinearLayout.LayoutParams refreshHintParams =
+            new LinearLayout.LayoutParams(-1,-2);
+        refreshHintParams.bottomMargin = 16;
+        root.addView(refreshHint,refreshHintParams);
 
         search = new EditText(this);
         search.setSingleLine(true);
@@ -552,7 +603,9 @@ public class MainActivity extends Activity {
         list.removeAllViews();
 
         if (loading) {
-            status.setText("正在加载游戏...");
+            status.setText(
+                refreshingByGesture ? "正在刷新游戏..." : "正在加载游戏..."
+            );
             return;
         }
 
