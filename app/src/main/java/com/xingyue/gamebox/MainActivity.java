@@ -105,6 +105,136 @@ public class MainActivity extends Activity {
         checkForUpdate();
     }
 
+    // 全局固定底部导航
+    public void showPageWithBottomNav(View content, int selectedTab) {
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setBackgroundColor(purple);
+
+        LinearLayout.LayoutParams contentParams =
+            new LinearLayout.LayoutParams(-1, 0, 1);
+
+        container.addView(content, contentParams);
+
+        LinearLayout nav = new LinearLayout(this);
+        nav.setOrientation(LinearLayout.HORIZONTAL);
+        nav.setGravity(Gravity.CENTER);
+        nav.setBackgroundColor(0xFF211A32);
+
+        String[] titles = {
+            "⌂\n首页",
+            "▦\n游戏分类",
+            "👤\n用户中心"
+        };
+
+        for (int i = 0; i < titles.length; i++) {
+            final int tab = i;
+
+            TextView item = label(
+                titles[i],
+                12,
+                selectedTab == i ? 0xFFD5A7FF : 0xFFB9AED5
+            );
+
+            item.setGravity(Gravity.CENTER);
+            item.setTypeface(null, Typeface.BOLD);
+
+            LinearLayout.LayoutParams itemParams =
+                new LinearLayout.LayoutParams(0, -1, 1);
+
+            nav.addView(item, itemParams);
+
+            item.setOnClickListener(v -> {
+                if (tab == 0) {
+                    home();
+                } else if (tab == 1) {
+                    showCategories();
+                } else {
+                    showUserCenter();
+                }
+            });
+        }
+
+        container.addView(
+            nav,
+            new LinearLayout.LayoutParams(-1, dp(62))
+        );
+
+        setContentView(container);
+    }
+
+    // 游戏分类独立页面
+    void showCategories() {
+        ScrollView scroll = new ScrollView(this);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(22), dp(28), dp(22), dp(24));
+        root.setBackgroundColor(purple);
+
+        scroll.addView(root);
+
+        TextView title = label("✦ 游戏分类", 25, Color.WHITE);
+        title.setTypeface(null, Typeface.BOLD);
+        root.addView(title);
+
+        TextView sub = label(
+            "选择分类，发现喜欢的游戏",
+            14,
+            0xFFB9AED5
+        );
+
+        LinearLayout.LayoutParams subParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        subParams.topMargin = dp(8);
+        subParams.bottomMargin = dp(24);
+        root.addView(sub, subParams);
+
+        LinkedHashSet<String> categories = new LinkedHashSet<>();
+        categories.add("全部");
+
+        for (Game game : games) {
+            if (game.type != null && !game.type.isEmpty()) {
+                categories.add(game.type);
+            }
+        }
+
+        for (String c : categories) {
+            TextView item = label(
+                "🎮    " + c + "    ›",
+                17,
+                Color.WHITE
+            );
+
+            item.setPadding(dp(18), dp(18), dp(18), dp(18));
+            item.setBackground(shape(0xFF302546));
+
+            LinearLayout.LayoutParams itemParams =
+                new LinearLayout.LayoutParams(-1, -2);
+            itemParams.bottomMargin = dp(12);
+
+            root.addView(item, itemParams);
+
+            item.setOnClickListener(v -> {
+                category = c;
+                home();
+                updateCategories();
+                render();
+            });
+        }
+
+        if (categories.size() <= 1) {
+            TextView empty = label(
+                "暂时还没有游戏分类",
+                14,
+                0xFFB9AED5
+            );
+            root.addView(empty);
+        }
+
+        showPageWithBottomNav(scroll, 1);
+    }
+
     // 用户中心
     void showUserCenter() {
         if (userAuth.isLoggedIn()) {
@@ -115,14 +245,7 @@ public class MainActivity extends Activity {
                     home();
                     loadGames();
                 },
-                () -> {
-                    home();
-                    Toast.makeText(
-                        this,
-                        "请在首页选择你想浏览的游戏分类",
-                        Toast.LENGTH_SHORT
-                    ).show();
-                }
+                () -> showCategories()
             );
 
         } else {
@@ -303,9 +426,7 @@ public class MainActivity extends Activity {
 
                 int responseCode = conn.getResponseCode();
 
-                if (responseCode != 200) {
-                    return;
-                }
+                if (responseCode != 200) return;
 
                 BufferedReader reader = new BufferedReader(
                     new InputStreamReader(
@@ -325,9 +446,7 @@ public class MainActivity extends Activity {
                 JSONArray array =
                     new JSONArray(result.toString());
 
-                if (array.length() == 0) {
-                    return;
-                }
+                if (array.length() == 0) return;
 
                 JSONObject release = array.getJSONObject(0);
 
@@ -352,20 +471,14 @@ public class MainActivity extends Activity {
                     !apkUrl.isEmpty()) {
 
                     runOnUiThread(() -> {
-                        showUpdateDialog(
-                            version,
-                            notes,
-                            apkUrl
-                        );
+                        showUpdateDialog(version, notes, apkUrl);
                     });
                 }
 
             } catch (Exception e) {
                 // 检查失败不影响正常使用
             } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
@@ -415,7 +528,7 @@ public class MainActivity extends Activity {
         return d;
     }
 
-    TextView label(String s,int size,int color) {
+    TextView label(String s, int size, int color) {
         TextView t = new TextView(this);
         t.setText(s);
         t.setTextSize(size);
@@ -433,9 +546,7 @@ public class MainActivity extends Activity {
 
     // 在线加载封面图片
     void loadCover(ImageView image, String imageUrl) {
-        if (imageUrl == null || imageUrl.trim().isEmpty()) {
-            return;
-        }
+        if (imageUrl == null || imageUrl.trim().isEmpty()) return;
 
         image.setTag(imageUrl);
 
@@ -464,9 +575,7 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 // 图片加载失败时保留默认图标
             } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
@@ -485,21 +594,17 @@ public class MainActivity extends Activity {
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
 
         FrameLayout.LayoutParams imageParams =
-            new FrameLayout.LayoutParams(-1,-1);
+            new FrameLayout.LayoutParams(-1, -1);
 
-        frame.addView(image,imageParams);
+        frame.addView(image, imageParams);
 
-        TextView fallback = label(
-            iconText,
-            35,
-            Color.WHITE
-        );
+        TextView fallback = label(iconText, 35, Color.WHITE);
         fallback.setGravity(Gravity.CENTER);
 
         FrameLayout.LayoutParams fallbackParams =
-            new FrameLayout.LayoutParams(-1,-1);
+            new FrameLayout.LayoutParams(-1, -1);
 
-        frame.addView(fallback,fallbackParams);
+        frame.addView(fallback, fallbackParams);
 
         if (coverUrl != null && !coverUrl.isEmpty()) {
             image.setTag(coverUrl);
@@ -530,15 +635,13 @@ public class MainActivity extends Activity {
                 } catch (Exception e) {
                     // 保留默认图标
                 } finally {
-                    if (conn != null) {
-                        conn.disconnect();
-                    }
+                    if (conn != null) conn.disconnect();
                 }
             }).start();
         }
 
         frame.setLayoutParams(
-            new LinearLayout.LayoutParams(width,height)
+            new LinearLayout.LayoutParams(width, height)
         );
 
         return frame;
@@ -635,9 +738,7 @@ public class MainActivity extends Activity {
                 });
 
             } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
+                if (conn != null) conn.disconnect();
             }
         }).start();
     }
@@ -648,75 +749,53 @@ public class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(1);
-        root.setPadding(20,24,20,30);
+        root.setPadding(20, 24, 20, 30);
         root.setBackgroundColor(purple);
 
         scroll.addView(root);
-        setContentView(scroll);
 
-        TextView title = label("✦ 星月游戏盒",27,Color.WHITE);
-        title.setTypeface(null,Typeface.BOLD);
+        TextView title = label("✦ 星月游戏盒", 27, Color.WHITE);
+        title.setTypeface(null, Typeface.BOLD);
         root.addView(title);
-
-        // 用户中心入口
-        TextView userButton = label(
-            userAuth.isLoggedIn()
-                ? "👤 我的用户中心"
-                : "👤 登录 / 注册",
-            15,
-            Color.WHITE
-        );
-
-        userButton.setGravity(Gravity.CENTER);
-        userButton.setPadding(16,13,16,13);
-        userButton.setBackground(shape(0xFF7545B5));
-
-        LinearLayout.LayoutParams userParams =
-            new LinearLayout.LayoutParams(-1,-2);
-        userParams.topMargin = 15;
-        userParams.bottomMargin = 12;
-        root.addView(userButton,userParams);
-
-        userButton.setOnClickListener(v -> showUserCenter());
 
         TextView sub = label(
             "发现好玩的游戏 · 开启星月之旅",
-            14,0xFFB9AED5
+            14, 0xFFB9AED5
         );
 
         LinearLayout.LayoutParams sp =
-            new LinearLayout.LayoutParams(-1,-2);
-        sp.topMargin=8;
-        sp.bottomMargin=22;
-        root.addView(sub,sp);
+            new LinearLayout.LayoutParams(-1, -2);
+        sp.topMargin = 8;
+        sp.bottomMargin = 22;
+        root.addView(sub, sp);
 
         TextView refreshHint = label(
             "↓ 下拉页面即可刷新游戏列表",
-            12,0xFFB9AED5
+            12, 0xFFB9AED5
         );
 
         LinearLayout.LayoutParams refreshHintParams =
-            new LinearLayout.LayoutParams(-1,-2);
+            new LinearLayout.LayoutParams(-1, -2);
         refreshHintParams.bottomMargin = 16;
-        root.addView(refreshHint,refreshHintParams);
+        root.addView(refreshHint, refreshHintParams);
 
         search = new EditText(this);
         search.setSingleLine(true);
         search.setHint("搜索你喜欢的游戏");
         search.setHintTextColor(0xFFB9AED5);
         search.setTextColor(Color.WHITE);
-        search.setPadding(18,10,18,10);
+        search.setPadding(18, 10, 18, 10);
         search.setBackground(shape(0xFF302546));
         root.addView(search);
 
-        TextView heading = label("游戏分类",21,Color.WHITE);
-        heading.setTypeface(null,Typeface.BOLD);
+        TextView heading = label("游戏分类", 21, Color.WHITE);
+        heading.setTypeface(null, Typeface.BOLD);
 
         LinearLayout.LayoutParams hp =
-            new LinearLayout.LayoutParams(-1,-2);
-        hp.topMargin=25;
-        hp.bottomMargin=12;
-        root.addView(heading,hp);
+            new LinearLayout.LayoutParams(-1, -2);
+        hp.topMargin = 25;
+        hp.bottomMargin = 12;
+        root.addView(heading, hp);
 
         categoryBar = new LinearLayout(this);
         categoryBar.setOrientation(0);
@@ -726,16 +805,16 @@ public class MainActivity extends Activity {
         hs.addView(categoryBar);
         root.addView(hs);
 
-        TextView gamesTitle = label("热门游戏",21,Color.WHITE);
-        gamesTitle.setTypeface(null,Typeface.BOLD);
+        TextView gamesTitle = label("热门游戏", 21, Color.WHITE);
+        gamesTitle.setTypeface(null, Typeface.BOLD);
 
         LinearLayout.LayoutParams gp =
-            new LinearLayout.LayoutParams(-1,-2);
-        gp.topMargin=25;
-        gp.bottomMargin=15;
-        root.addView(gamesTitle,gp);
+            new LinearLayout.LayoutParams(-1, -2);
+        gp.topMargin = 25;
+        gp.bottomMargin = 15;
+        root.addView(gamesTitle, gp);
 
-        status = label("正在加载游戏...",14,0xFFB9AED5);
+        status = label("正在加载游戏...", 14, 0xFFB9AED5);
         root.addView(status);
 
         list = new LinearLayout(this);
@@ -744,10 +823,12 @@ public class MainActivity extends Activity {
 
         search.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(
-                CharSequence s,int st,int c,int a) {}
+                CharSequence s, int st, int c, int a
+            ) {}
 
             public void onTextChanged(
-                CharSequence s,int st,int before,int count) {
+                CharSequence s, int st, int before, int count
+            ) {
                 render();
             }
 
@@ -756,6 +837,8 @@ public class MainActivity extends Activity {
 
         updateCategories();
         render();
+
+        showPageWithBottomNav(scroll, 0);
     }
 
     void updateCategories() {
@@ -773,20 +856,20 @@ public class MainActivity extends Activity {
         }
 
         for (String c : categories) {
-            TextView btn = label(c,12,Color.WHITE);
+            TextView btn = label(c, 12, Color.WHITE);
             btn.setGravity(Gravity.CENTER);
-            btn.setPadding(12,12,12,12);
+            btn.setPadding(12, 12, 12, 12);
             btn.setBackground(shape(
                 category.equals(c) ? 0xFF7545B5 : 0xFF49346C
             ));
 
             LinearLayout.LayoutParams p =
-                new LinearLayout.LayoutParams(-2,-2);
-            p.rightMargin=7;
-            categoryBar.addView(btn,p);
+                new LinearLayout.LayoutParams(-2, -2);
+            p.rightMargin = 7;
+            categoryBar.addView(btn, p);
 
             btn.setOnClickListener(v -> {
-                category=c;
+                category = c;
                 updateCategories();
                 render();
             });
@@ -819,27 +902,26 @@ public class MainActivity extends Activity {
 
         int count = 0;
 
-        for (int i=0;i<games.size();i++) {
+        for (int i = 0; i < games.size(); i++) {
             Game game = games.get(i);
 
             if (!category.equals("全部") &&
                 !category.equals(game.type)) continue;
 
-            if (!game.name.toLowerCase().contains(key))
-                continue;
+            if (!game.name.toLowerCase().contains(key)) continue;
 
             count++;
 
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(0);
             card.setGravity(Gravity.CENTER_VERTICAL);
-            card.setPadding(15,18,15,18);
+            card.setPadding(15, 18, 15, 18);
             card.setBackground(shape(0xFF302546));
 
             LinearLayout.LayoutParams cp =
-                new LinearLayout.LayoutParams(-1,-2);
-            cp.bottomMargin=12;
-            list.addView(card,cp);
+                new LinearLayout.LayoutParams(-1, -2);
+            cp.bottomMargin = 12;
+            list.addView(card, cp);
 
             FrameLayout cover = createCover(
                 gameIcon(game.type),
@@ -852,26 +934,24 @@ public class MainActivity extends Activity {
 
             LinearLayout info = new LinearLayout(this);
             info.setOrientation(1);
-            info.setPadding(15,0,0,0);
+            info.setPadding(15, 0, 0, 0);
 
             card.addView(info,
-                new LinearLayout.LayoutParams(0,-2,1));
+                new LinearLayout.LayoutParams(0, -2, 1));
 
-            TextView name = label(game.name,17,Color.WHITE);
-            name.setTypeface(null,Typeface.BOLD);
+            TextView name = label(game.name, 17, Color.WHITE);
+            name.setTypeface(null, Typeface.BOLD);
             info.addView(name);
 
-            TextView type = label(
-                game.type,13,0xFFB9AED5
-            );
+            TextView type = label(game.type, 13, 0xFFB9AED5);
 
             LinearLayout.LayoutParams tp =
-                new LinearLayout.LayoutParams(-1,-2);
-            tp.topMargin=5;
-            info.addView(type,tp);
+                new LinearLayout.LayoutParams(-1, -2);
+            tp.topMargin = 5;
+            info.addView(type, tp);
 
             TextView detail = label(
-                "查看详情 ›",13,0xFFD5A7FF
+                "查看详情 ›", 13, 0xFFD5A7FF
             );
             card.addView(detail);
 
@@ -900,14 +980,13 @@ public class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(1);
-        root.setPadding(24,30,24,30);
+        root.setPadding(24, 30, 24, 30);
         root.setBackgroundColor(purple);
 
         scroll.addView(root);
-        setContentView(scroll);
 
         TextView back = label(
-            "‹ 返回游戏列表",16,0xFFD5A7FF
+            "‹ 返回游戏列表", 16, 0xFFD5A7FF
         );
         root.addView(back);
 
@@ -921,21 +1000,17 @@ public class MainActivity extends Activity {
         );
 
         LinearLayout.LayoutParams coverParams =
-            new LinearLayout.LayoutParams(-1,dp(210));
-        coverParams.topMargin=20;
-        coverParams.bottomMargin=18;
-        root.addView(cover,coverParams);
+            new LinearLayout.LayoutParams(-1, dp(210));
+        coverParams.topMargin = 20;
+        coverParams.bottomMargin = 18;
+        root.addView(cover, coverParams);
 
-        TextView title = label(
-            game.name,26,Color.WHITE
-        );
-        title.setTypeface(null,Typeface.BOLD);
+        TextView title = label(game.name, 26, Color.WHITE);
+        title.setTypeface(null, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
         root.addView(title);
 
-        TextView type = label(
-            game.type,15,0xFFB9AED5
-        );
+        TextView type = label(game.type, 15, 0xFFB9AED5);
         type.setGravity(Gravity.CENTER);
         root.addView(type);
 
@@ -954,25 +1029,25 @@ public class MainActivity extends Activity {
 
         TextView desc = label(
             description + extra,
-            16,Color.WHITE
+            16, Color.WHITE
         );
 
-        LinearLayout.LayoutParams dp =
-            new LinearLayout.LayoutParams(-1,-2);
-        dp.topMargin=30;
-        root.addView(desc,dp);
+        LinearLayout.LayoutParams descParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        descParams.topMargin = 30;
+        root.addView(desc, descParams);
 
         TextView download = label(
-            "立即下载",18,Color.WHITE
+            "立即下载", 18, Color.WHITE
         );
         download.setGravity(Gravity.CENTER);
-        download.setPadding(20,16,20,16);
+        download.setPadding(20, 16, 20, 16);
         download.setBackground(shape(0xFF7545B5));
 
         LinearLayout.LayoutParams bp =
-            new LinearLayout.LayoutParams(-1,-2);
-        bp.topMargin=35;
-        root.addView(download,bp);
+            new LinearLayout.LayoutParams(-1, -2);
+        bp.topMargin = 35;
+        root.addView(download, bp);
 
         download.setOnClickListener(v -> {
             if (!game.downloadUrl.isEmpty()) {
@@ -997,5 +1072,7 @@ public class MainActivity extends Activity {
                 ).show();
             }
         });
+
+        showPageWithBottomNav(scroll, 0);
     }
 }
