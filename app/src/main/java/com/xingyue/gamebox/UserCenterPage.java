@@ -97,7 +97,11 @@ public class UserCenterPage {
         root.setBackgroundColor(BG);
 
         scroll.addView(root);
-        activity.setContentView(scroll);
+
+        // 使用主页面的全局底部导航
+        ((MainActivity) activity).showPageWithBottomNav(
+            scroll, 2
+        );
 
         TextView title = text("✦ 用户中心", 27, Color.WHITE);
         title.setTypeface(null, Typeface.BOLD);
@@ -196,21 +200,6 @@ public class UserCenterPage {
 
         logout.setOnClickListener(v -> confirmLogout());
 
-        // 底部导航
-        LinearLayout nav = new LinearLayout(activity);
-        nav.setOrientation(0);
-        nav.setGravity(Gravity.CENTER);
-        nav.setBackground(shape(CARD, 16));
-
-        LinearLayout.LayoutParams navParams =
-            new LinearLayout.LayoutParams(-1, dp(62));
-        navParams.topMargin = dp(24);
-        root.addView(nav, navParams);
-
-        addNav(nav, "⌂\n首页", false, onHome);
-        addNav(nav, "▦\n游戏分类", false, onCategories);
-        addNav(nav, "👤\n用户中心", true, this::show);
-
         loadProfile();
     }
 
@@ -267,24 +256,6 @@ public class UserCenterPage {
         card.addView(desc, descParams);
 
         card.setOnClickListener(v -> action.run());
-    }
-
-    private void addNav(
-        LinearLayout parent,
-        String title,
-        boolean selected,
-        Runnable action
-    ) {
-        TextView item = text(
-            title, 13,
-            selected ? 0xFFD5A7FF : MUTED
-        );
-        item.setGravity(Gravity.CENTER);
-
-        parent.addView(item,
-            new LinearLayout.LayoutParams(0, -1, 1));
-
-        item.setOnClickListener(v -> action.run());
     }
 
     private void showMessage(String title, String message) {
