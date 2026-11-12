@@ -94,7 +94,8 @@ public class UserProfilePage {
         root.setPadding(dp(20), dp(24), dp(20), dp(30));
         root.setBackgroundColor(PURPLE);
         scroll.addView(root);
-        activity.setContentView(scroll);
+
+        ((MainActivity) activity).showPageWithBottomNav(scroll, 2);
 
         TextView back = text("‹ 返回游戏盒", 16, 0xFFD5A7FF);
         root.addView(back);
