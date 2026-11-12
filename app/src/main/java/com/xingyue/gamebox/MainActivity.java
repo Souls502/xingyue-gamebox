@@ -108,33 +108,10 @@ public class MainActivity extends Activity {
     // 用户中心
     void showUserCenter() {
         if (userAuth.isLoggedIn()) {
-            String email = userAuth.getEmail();
-            String userId = userAuth.getUserId();
-
-            String message =
-                "邮箱：" + email +
-                "\n\n用户 ID：" + userId;
-
-            new AlertDialog.Builder(this)
-                .setTitle("✦ 我的用户中心")
-                .setMessage(message)
-                .setPositiveButton("退出登录", (dialog, which) -> {
-                    new Thread(() -> {
-                        userAuth.logout();
-
-                        runOnUiThread(() -> {
-                            Toast.makeText(
-                                this,
-                                "已退出登录",
-                                Toast.LENGTH_SHORT
-                            ).show();
-                            home();
-                            loadGames();
-                        });
-                    }).start();
-                })
-                .setNegativeButton("返回", null)
-                .show();
+            UserProfilePage.open(this, userAuth, () -> {
+                home();
+                loadGames();
+            });
 
         } else {
             new AlertDialog.Builder(this)
