@@ -13,8 +13,6 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.MotionEvent;
-import android.view.inputmethod.InputMethodManager;
-import android.content.Context;
 import android.text.InputType;
 import android.widget.*;
 import android.text.TextWatcher;
@@ -29,6 +27,7 @@ import java.net.URL;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
@@ -82,6 +81,7 @@ public class MainActivity extends Activity {
     }
 
     static class Game {
+        long id = -1;
         String name = "";
         String description = "";
         String type = "其他";
@@ -647,6 +647,7 @@ public class MainActivity extends Activity {
         return frame;
     }
 
+    // 加载游戏列表
     void loadGames() {
         loading = true;
         render();
@@ -695,6 +696,7 @@ public class MainActivity extends Activity {
                     JSONObject obj = array.getJSONObject(i);
 
                     Game game = new Game();
+                    game.id = obj.optLong("id", -1);
                     game.name = obj.optString("title", "");
                     game.description = obj.optString("description", "");
                     game.type = obj.optString("category", "其他");
@@ -973,6 +975,231 @@ public class MainActivity extends Activity {
         }
     }
 
+    // 查询当前游戏是否已经收藏
+    boolean checkFavorite(Game game) throws Exception {
+        String userId = userAuth.getUserId();
+        String token = userAuth.getAccessToken();
+
+        if (userId.isEmpty() || token.isEmpty() || game.id < 0) {
+            throw new Exception("请先登录账号");
+        }
+
+        String path =
+            "/rest/v1/user_favorites?select=game_id" +
+            "&user_id=eq." + Uri.encode(userId) +
+            "&game_id=eq." + game.id;
+
+        HttpURLConnection conn = null;
+
+        try {
+            URL url = new URL(SUPABASE_URL + path);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(15000);
+            conn.setRequestProperty("apikey", SUPABASE_KEY);
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+            conn.setRequestProperty("Accept", "application/json");
+
+            int code = conn.getResponseCode();
+
+            if (code != 200) {
+                throw new Exception("查询收藏失败，服务器返回：" + code);
+            }
+
+            String response = readResponse(conn.getInputStream());
+            JSONArray array = new JSONArray(response);
+
+            return array.length() > 0;
+
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    // 读取网络响应
+    String readResponse(InputStream stream) throws Exception {
+        StringBuilder result = new StringBuilder();
+
+        try (BufferedReader reader = new BufferedReader(
+            new InputStreamReader(stream, "UTF-8")
+        )) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                result.append(line);
+            }
+        }
+
+        return result.toString();
+    }
+
+    // 刷新收藏按钮状态
+    void loadFavoriteState(Game game, TextView button) {
+        if (!userAuth.isLoggedIn()) {
+            button.setText("☆ 收藏游戏");
+            button.setEnabled(true);
+            button.setTag(false);
+            return;
+        }
+
+        button.setEnabled(false);
+        button.setText("正在读取收藏状态...");
+
+        new Thread(() -> {
+            try {
+                boolean saved = checkFavorite(game);
+
+                runOnUiThread(() -> {
+                    button.setTag(saved);
+                    button.setText(
+                        saved ? "★ 已收藏" : "☆ 收藏游戏"
+                    );
+                    button.setEnabled(true);
+                });
+
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    button.setText("☆ 收藏游戏");
+                    button.setEnabled(true);
+                    Toast.makeText(
+                        this,
+                        "读取收藏状态失败：" + e.getMessage(),
+                        Toast.LENGTH_LONG
+                    ).show();
+                });
+            }
+        }).start();
+    }
+
+    // 添加或取消收藏
+    void toggleFavorite(Game game, TextView button) {
+        if (!userAuth.isLoggedIn()) {
+            new AlertDialog.Builder(this)
+                .setTitle("需要登录")
+                .setMessage("登录账号后才能收藏游戏。")
+                .setPositiveButton("去登录", (dialog, which) -> {
+                    showAuthDialog(false);
+                })
+                .setNegativeButton("取消", null)
+                .show();
+            return;
+        }
+
+        if (game.id < 0) {
+            Toast.makeText(
+                this,
+                "游戏编号无效，暂时无法收藏",
+                Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        button.setEnabled(false);
+        button.setText("正在保存...");
+
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+
+            try {
+                boolean alreadySaved = checkFavorite(game);
+
+                String userId = userAuth.getUserId();
+                String token = userAuth.getAccessToken();
+
+                String path =
+                    "/rest/v1/user_favorites" +
+                    "?user_id=eq." + Uri.encode(userId) +
+                    "&game_id=eq." + game.id;
+
+                if (alreadySaved) {
+                    URL url = new URL(SUPABASE_URL + path);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("DELETE");
+
+                } else {
+                    URL url = new URL(
+                        SUPABASE_URL + "/rest/v1/user_favorites"
+                    );
+
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setDoOutput(true);
+                    conn.setRequestProperty(
+                        "Content-Type", "application/json"
+                    );
+
+                    JSONObject body = new JSONObject();
+                    body.put("user_id", userId);
+                    body.put("game_id", game.id);
+
+                    byte[] data = body.toString().getBytes("UTF-8");
+
+                    try (OutputStream out = conn.getOutputStream()) {
+                        out.write(data);
+                    }
+                }
+
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(15000);
+                conn.setRequestProperty("apikey", SUPABASE_KEY);
+                conn.setRequestProperty(
+                    "Authorization", "Bearer " + token
+                );
+                conn.setRequestProperty("Accept", "application/json");
+
+                int code = conn.getResponseCode();
+
+                if (code < 200 || code >= 300) {
+                    InputStream error = conn.getErrorStream();
+                    String message = error == null
+                        ? "" : readResponse(error);
+
+                    throw new Exception(
+                        "服务器返回：" + code +
+                        (message.isEmpty() ? "" : " " + message)
+                    );
+                }
+
+                final boolean newState = !alreadySaved;
+
+                runOnUiThread(() -> {
+                    button.setTag(newState);
+                    button.setText(
+                        newState ? "★ 已收藏" : "☆ 收藏游戏"
+                    );
+                    button.setEnabled(true);
+
+                    Toast.makeText(
+                        this,
+                        newState ? "已添加到我的收藏" : "已取消收藏",
+                        Toast.LENGTH_SHORT
+                    ).show();
+                });
+
+            } catch (Exception e) {
+                String message = e.getMessage();
+
+                runOnUiThread(() -> {
+                    button.setEnabled(true);
+                    button.setText(
+                        Boolean.TRUE.equals(button.getTag())
+                            ? "★ 已收藏"
+                            : "☆ 收藏游戏"
+                    );
+
+                    Toast.makeText(
+                        this,
+                        "收藏操作失败：" + message,
+                        Toast.LENGTH_LONG
+                    ).show();
+                });
+
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
+
     void showDetail(int index) {
         Game game = games.get(index);
 
@@ -1037,6 +1264,26 @@ public class MainActivity extends Activity {
         descParams.topMargin = 30;
         root.addView(desc, descParams);
 
+        // 收藏按钮
+        TextView favorite = label(
+            "☆ 收藏游戏", 17, Color.WHITE
+        );
+        favorite.setGravity(Gravity.CENTER);
+        favorite.setPadding(20, 16, 20, 16);
+        favorite.setBackground(shape(0xFF49346C));
+        favorite.setTag(false);
+
+        LinearLayout.LayoutParams favoriteParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        favoriteParams.topMargin = 30;
+        root.addView(favorite, favoriteParams);
+
+        favorite.setOnClickListener(v -> {
+            toggleFavorite(game, favorite);
+        });
+
+        loadFavoriteState(game, favorite);
+
         TextView download = label(
             "立即下载", 18, Color.WHITE
         );
@@ -1046,7 +1293,7 @@ public class MainActivity extends Activity {
 
         LinearLayout.LayoutParams bp =
             new LinearLayout.LayoutParams(-1, -2);
-        bp.topMargin = 35;
+        bp.topMargin = 18;
         root.addView(download, bp);
 
         download.setOnClickListener(v -> {
