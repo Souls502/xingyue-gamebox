@@ -108,10 +108,22 @@ public class MainActivity extends Activity {
     // 用户中心
     void showUserCenter() {
         if (userAuth.isLoggedIn()) {
-            UserProfilePage.open(this, userAuth, () -> {
-                home();
-                loadGames();
-            });
+            UserCenterPage.open(
+                this,
+                userAuth,
+                () -> {
+                    home();
+                    loadGames();
+                },
+                () -> {
+                    home();
+                    Toast.makeText(
+                        this,
+                        "请在首页选择你想浏览的游戏分类",
+                        Toast.LENGTH_SHORT
+                    ).show();
+                }
+            );
 
         } else {
             new AlertDialog.Builder(this)
