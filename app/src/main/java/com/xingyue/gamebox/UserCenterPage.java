@@ -9,8 +9,10 @@ import android.graphics.Typeface;
 import android.graphics.LinearGradient;
 import android.graphics.Shader;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -293,9 +295,7 @@ public class UserCenterPage {
                     "消息功能正在开发中，敬请期待。"));
 
         addMenu(row2, "⭐", "我的收藏",
-            "管理收藏游戏", () ->
-                showMessage("我的收藏",
-                    "收藏功能正在开发中，敬请期待。"));
+            "管理收藏游戏", () -> showFavorites());
 
         // 退出登录
         TextView logout = text(
@@ -315,6 +315,336 @@ public class UserCenterPage {
         logout.setOnClickListener(v -> confirmLogout());
 
         loadProfile();
+    }
+
+
+    // 打开当前登录用户的云端收藏列表
+    private void showFavorites() {
+        MainActivity main = (MainActivity) activity;
+
+        ScrollView scroll = new ScrollView(activity);
+        scroll.setFillViewport(true);
+        scroll.setClipToPadding(false);
+
+        LinearLayout root = new LinearLayout(activity);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(18), dp(22), dp(18), dp(24));
+        root.setBackgroundColor(BG);
+        scroll.addView(root);
+
+        LinearLayout header = new LinearLayout(activity);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(header);
+
+        TextView back = text("‹ 返回", 17, 0xFFE6C8FF);
+        back.setPadding(dp(4), dp(8), dp(16), dp(8));
+        header.addView(back);
+        back.setOnClickListener(v -> show());
+
+        TextView title = text("我的收藏", 24, WHITE);
+        title.setTypeface(null, Typeface.BOLD);
+        LinearLayout.LayoutParams titleParams =
+            new LinearLayout.LayoutParams(0, -2, 1);
+        header.addView(title, titleParams);
+
+        TextView subtitle = text(
+            "收藏的游戏会保存在你的账号中", 13, MUTED
+        );
+        LinearLayout.LayoutParams subtitleParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        subtitleParams.topMargin = dp(10);
+        root.addView(subtitle, subtitleParams);
+
+        LinearLayout items = new LinearLayout(activity);
+        items.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams itemsParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        itemsParams.topMargin = dp(18);
+        root.addView(items, itemsParams);
+
+        main.showPageWithBottomNav(scroll, 2);
+        loadFavorites(items);
+    }
+
+    // 从 Supabase 读取收藏记录及对应游戏资料
+    private void loadFavorites(LinearLayout items) {
+        items.removeAllViews();
+
+        TextView loading = text("正在加载收藏游戏……", 15, MUTED);
+        loading.setGravity(Gravity.CENTER);
+        loading.setPadding(0, dp(35), 0, dp(35));
+        items.addView(loading);
+
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+            try {
+                String userId = auth.getUserId();
+                String token = auth.getAccessToken();
+
+                if (userId == null || userId.trim().isEmpty()
+                    || token == null || token.trim().isEmpty()) {
+                    activity.runOnUiThread(() -> {
+                        items.removeAllViews();
+                        showFavoritesMessage(items, "请先登录账号，再查看收藏游戏。");
+                    });
+                    return;
+                }
+
+                String query = BASE
+                    + "/rest/v1/user_favorites"
+                    + "?select=game_id,games(id,title,description,category,version,file_size,cover_url,download_url)"
+                    + "&user_id=eq." + Uri.encode(userId)
+                    + "&order=created_at.desc";
+
+                URL url = new URL(query);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(15000);
+                conn.setRequestProperty("apikey", API_KEY);
+                conn.setRequestProperty(
+                    "Authorization", "Bearer " + token
+                );
+                conn.setRequestProperty("Accept", "application/json");
+
+                int code = conn.getResponseCode();
+                InputStream stream = code >= 200 && code < 300
+                    ? conn.getInputStream() : conn.getErrorStream();
+                String response = stream == null ? "" : readStream(stream);
+
+                if (code < 200 || code >= 300) {
+                    final int errorCode = code;
+                    activity.runOnUiThread(() -> {
+                        items.removeAllViews();
+                        showFavoritesMessage(
+                            items, "读取收藏失败，请稍后重试。\n错误代码：" + errorCode
+                        );
+                    });
+                    return;
+                }
+
+                JSONArray rows = new JSONArray(response);
+                java.util.ArrayList<MainActivity.Game> result =
+                    new java.util.ArrayList<>();
+
+                for (int i = 0; i < rows.length(); i++) {
+                    JSONObject row = rows.optJSONObject(i);
+                    if (row == null) continue;
+
+                    JSONObject gameObject = row.optJSONObject("games");
+                    if (gameObject == null) {
+                        JSONArray gameArray = row.optJSONArray("games");
+                        if (gameArray != null && gameArray.length() > 0) {
+                            gameObject = gameArray.optJSONObject(0);
+                        }
+                    }
+                    if (gameObject == null) continue;
+
+                    MainActivity.Game game = new MainActivity.Game();
+                    game.id = gameObject.optLong(
+                        "id", row.optLong("game_id", -1)
+                    );
+                    game.name = gameObject.optString("title", "未命名游戏");
+                    game.description = gameObject.optString("description", "");
+                    game.type = gameObject.optString("category", "");
+                    game.version = gameObject.optString("version", "");
+                    game.fileSize = gameObject.optString("file_size", "");
+                    game.coverUrl = gameObject.optString("cover_url", "");
+                    game.downloadUrl = gameObject.optString("download_url", "");
+
+                    if (game.id > 0) result.add(game);
+                }
+
+                activity.runOnUiThread(() -> {
+                    items.removeAllViews();
+
+                    if (result.isEmpty()) {
+                        showFavoritesMessage(
+                            items,
+                            "还没有收藏游戏。\n去游戏首页发现喜欢的游戏吧！"
+                        );
+                        return;
+                    }
+
+                    MainActivity main = (MainActivity) activity;
+                    for (MainActivity.Game game : result) {
+                        addFavoriteItem(items, game, main);
+                    }
+                });
+
+            } catch (Exception e) {
+                activity.runOnUiThread(() -> {
+                    items.removeAllViews();
+                    showFavoritesMessage(
+                        items, "暂时无法连接收藏服务，请检查网络后重试。"
+                    );
+                });
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
+
+    private void showFavoritesMessage(LinearLayout items, String message) {
+        TextView empty = text(message, 15, MUTED);
+        empty.setGravity(Gravity.CENTER);
+        empty.setPadding(dp(18), dp(38), dp(18), dp(38));
+        empty.setBackground(shape(CARD, 16));
+        items.addView(
+            empty,
+            new LinearLayout.LayoutParams(-1, -2)
+        );
+    }
+
+    // 收藏游戏卡片：点击卡片进入详情，点击按钮取消收藏
+    private void addFavoriteItem(
+        LinearLayout parent,
+        MainActivity.Game game,
+        MainActivity main
+    ) {
+        LinearLayout card = new LinearLayout(activity);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setPadding(dp(10), dp(10), dp(10), dp(10));
+        card.setBackground(shape(CARD, 16));
+
+        LinearLayout.LayoutParams cardParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        cardParams.bottomMargin = dp(12);
+        parent.addView(card, cardParams);
+
+        FrameLayout cover = main.createCover(
+            "🎮", game.coverUrl, main.dp(76), main.dp(76)
+        );
+        card.addView(
+            cover,
+            new LinearLayout.LayoutParams(dp(76), dp(76))
+        );
+
+        LinearLayout info = new LinearLayout(activity);
+        info.setOrientation(LinearLayout.VERTICAL);
+        info.setPadding(dp(12), 0, dp(5), 0);
+        card.addView(
+            info,
+            new LinearLayout.LayoutParams(0, -2, 1)
+        );
+
+        TextView name = text(game.name, 16, WHITE);
+        name.setTypeface(null, Typeface.BOLD);
+        info.addView(name);
+
+        String category = game.type == null || game.type.trim().isEmpty()
+            ? "游戏" : game.type;
+        TextView type = text(category, 12, MUTED);
+        LinearLayout.LayoutParams typeParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        typeParams.topMargin = dp(7);
+        info.addView(type, typeParams);
+
+        TextView open = text("查看详情 ›", 12, 0xFFFFD77D);
+        LinearLayout.LayoutParams openParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        openParams.topMargin = dp(7);
+        info.addView(open, openParams);
+
+        TextView remove = text("取消收藏", 12, 0xFFFFA6C8);
+        remove.setGravity(Gravity.CENTER);
+        remove.setPadding(dp(9), dp(9), dp(9), dp(9));
+        remove.setBackground(shape(0xFF49204F, 18));
+        card.addView(remove);
+
+        View.OnClickListener detailClick = v -> {
+            int index = -1;
+            for (int i = 0; i < main.games.size(); i++) {
+                if (main.games.get(i).id == game.id) {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index >= 0) {
+                main.showDetail(index);
+            } else {
+                showMessage(
+                    "暂时无法打开",
+                    "这款游戏目前不在游戏列表中，请返回首页刷新后再试。"
+                );
+            }
+        };
+
+        cover.setOnClickListener(detailClick);
+        info.setOnClickListener(detailClick);
+        name.setOnClickListener(detailClick);
+        open.setOnClickListener(detailClick);
+
+        remove.setOnClickListener(v ->
+            removeFavorite(game, parent, main)
+        );
+    }
+
+    // 从云端删除当前用户的指定收藏
+    private void removeFavorite(
+        MainActivity.Game game,
+        LinearLayout items,
+        MainActivity main
+    ) {
+        new AlertDialog.Builder(activity)
+            .setTitle("取消收藏")
+            .setMessage("确定要取消收藏《" + game.name + "》吗？")
+            .setNegativeButton("再想想", null)
+            .setPositiveButton("确定", (dialog, which) -> {
+                new Thread(() -> {
+                    HttpURLConnection conn = null;
+                    try {
+                        String userId = auth.getUserId();
+                        String token = auth.getAccessToken();
+
+                        String query = BASE
+                            + "/rest/v1/user_favorites"
+                            + "?user_id=eq." + Uri.encode(userId)
+                            + "&game_id=eq." + game.id;
+
+                        URL url = new URL(query);
+                        conn = (HttpURLConnection) url.openConnection();
+                        conn.setRequestMethod("DELETE");
+                        conn.setConnectTimeout(15000);
+                        conn.setReadTimeout(15000);
+                        conn.setRequestProperty("apikey", API_KEY);
+                        conn.setRequestProperty(
+                            "Authorization", "Bearer " + token
+                        );
+                        conn.setRequestProperty("Accept", "application/json");
+
+                        int code = conn.getResponseCode();
+                        if (code >= 200 && code < 300) {
+                            activity.runOnUiThread(() -> {
+                                Toast.makeText(
+                                    activity, "已取消收藏",
+                                    Toast.LENGTH_SHORT
+                                ).show();
+                                loadFavorites(items);
+                            });
+                        } else {
+                            activity.runOnUiThread(() ->
+                                showMessage(
+                                    "取消失败",
+                                    "暂时无法取消收藏，请稍后重试。\n错误代码：" + code
+                                )
+                            );
+                        }
+                    } catch (Exception e) {
+                        activity.runOnUiThread(() ->
+                            showMessage(
+                                "网络连接失败",
+                                "暂时无法连接收藏服务，请检查网络后重试。"
+                            )
+                        );
+                    } finally {
+                        if (conn != null) conn.disconnect();
+                    }
+                }).start();
+            })
+            .show();
     }
 
     private LinearLayout createMenuRow(LinearLayout root) {
