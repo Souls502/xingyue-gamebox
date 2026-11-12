@@ -1102,7 +1102,6 @@ public class MainActivity extends Activity {
 
             try {
                 boolean alreadySaved = checkFavorite(game);
-
                 String userId = userAuth.getUserId();
                 String token = userAuth.getAccessToken();
 
@@ -1111,21 +1110,31 @@ public class MainActivity extends Activity {
                     "?user_id=eq." + Uri.encode(userId) +
                     "&game_id=eq." + game.id;
 
-                if (alreadySaved) {
-                    URL url = new URL(SUPABASE_URL + path);
-                    conn = (HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("DELETE");
+                URL url = new URL(
+                    SUPABASE_URL + (alreadySaved
+                        ? path
+                        : "/rest/v1/user_favorites")
+                );
 
-                } else {
-                    URL url = new URL(
-                        SUPABASE_URL + "/rest/v1/user_favorites"
-                    );
+                conn = (HttpURLConnection) url.openConnection();
 
-                    conn = (HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("POST");
+                // 必须先设置请求方法、超时和认证请求头
+                conn.setRequestMethod(alreadySaved ? "DELETE" : "POST");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(15000);
+                conn.setRequestProperty("apikey", SUPABASE_KEY);
+                conn.setRequestProperty(
+                    "Authorization", "Bearer " + token
+                );
+                conn.setRequestProperty("Accept", "application/json");
+
+                if (!alreadySaved) {
                     conn.setDoOutput(true);
                     conn.setRequestProperty(
                         "Content-Type", "application/json"
+                    );
+                    conn.setRequestProperty(
+                        "Prefer", "return=minimal"
                     );
 
                     JSONObject body = new JSONObject();
@@ -1138,14 +1147,6 @@ public class MainActivity extends Activity {
                         out.write(data);
                     }
                 }
-
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
-                conn.setRequestProperty("apikey", SUPABASE_KEY);
-                conn.setRequestProperty(
-                    "Authorization", "Bearer " + token
-                );
-                conn.setRequestProperty("Accept", "application/json");
 
                 int code = conn.getResponseCode();
 
@@ -1178,6 +1179,10 @@ public class MainActivity extends Activity {
 
             } catch (Exception e) {
                 String message = e.getMessage();
+                if (message == null || message.trim().isEmpty()) {
+                    message = "请检查网络或登录状态后重试";
+                }
+                final String errorMessage = message;
 
                 runOnUiThread(() -> {
                     button.setEnabled(true);
@@ -1189,7 +1194,7 @@ public class MainActivity extends Activity {
 
                     Toast.makeText(
                         this,
-                        "收藏操作失败：" + message,
+                        "收藏操作失败：" + errorMessage,
                         Toast.LENGTH_LONG
                     ).show();
                 });
