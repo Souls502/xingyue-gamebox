@@ -148,9 +148,6 @@ public class UserCenterPage {
         sloganParams.topMargin = dp(5);
         brand.addView(slogan, sloganParams);
 
-        TextView cat = text("🐱🌙", 38, WHITE);
-        header.addView(cat);
-
         // 用户信息大卡片
         LinearLayout userCard = new LinearLayout(activity);
         userCard.setOrientation(LinearLayout.VERTICAL);
@@ -215,13 +212,8 @@ public class UserCenterPage {
         stats.setGravity(Gravity.CENTER);
         userCard.addView(stats);
 
+        // 只保留我的积分
         addStat(stats, "我的积分", "1280");
-        View divider = new View(activity);
-        divider.setBackgroundColor(0xFF9D6BDB);
-        LinearLayout.LayoutParams dividerParams =
-            new LinearLayout.LayoutParams(dp(1), dp(48));
-        stats.addView(divider, dividerParams);
-        addStat(stats, "我的收藏", "24");
 
         // 会员中心横幅
         LinearLayout member = new LinearLayout(activity);
@@ -296,6 +288,7 @@ public class UserCenterPage {
                 showMessage("消息通知",
                     "消息功能正在开发中，敬请期待。"));
 
+        // 保留功能区里的我的收藏
         addMenu(row2, "⭐", "我的收藏",
             "管理收藏游戏", () ->
                 showMessage("我的收藏",
