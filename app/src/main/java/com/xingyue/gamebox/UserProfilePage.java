@@ -431,7 +431,7 @@ public class UserProfilePage {
 
             conn.setRequestProperty(
                 "Authorization",
-                "Bearer " + auth.getAccessToken()
+                "Bearer " + auth.getValidAccessToken()
             );
 
             conn.setRequestProperty(
@@ -618,4 +618,4 @@ public class UserProfilePage {
             canvas.drawPath(path, paint);
         }
     }
-}
+            }
