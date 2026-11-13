@@ -379,7 +379,7 @@ public class UserCenterPage {
             HttpURLConnection conn = null;
             try {
                 String userId = auth.getUserId();
-                String token = auth.getAccessToken();
+                String token = auth.getValidAccessToken();
 
                 if (userId == null || userId.trim().isEmpty()
                     || token == null || token.trim().isEmpty()) {
@@ -597,7 +597,7 @@ public class UserCenterPage {
                     HttpURLConnection conn = null;
                     try {
                         String userId = auth.getUserId();
-                        String token = auth.getAccessToken();
+                        String token = auth.getValidAccessToken();
 
                         String query = BASE
                             + "/rest/v1/user_favorites"
@@ -746,6 +746,8 @@ public class UserCenterPage {
             HttpURLConnection conn = null;
 
             try {
+                String token = auth.getValidAccessToken();
+
                 URL url = new URL(
                     BASE + "/rest/v1/profiles?id=eq."
                     + auth.getUserId()
@@ -759,7 +761,7 @@ public class UserCenterPage {
                 conn.setRequestProperty("apikey", API_KEY);
                 conn.setRequestProperty(
                     "Authorization",
-                    "Bearer " + auth.getAccessToken()
+                    "Bearer " + token
                 );
 
                 int code = conn.getResponseCode();
@@ -801,11 +803,9 @@ public class UserCenterPage {
             return;
         }
 
-        String token = auth.getAccessToken();
         String userId = auth.getUserId();
 
-        if (token == null || token.trim().isEmpty()
-            || userId == null || userId.trim().isEmpty()) {
+        if (userId == null || userId.trim().isEmpty()) {
             showMessage(
                 "暂时无法签到",
                 "请先登录账号，再进行每日签到。"
@@ -819,6 +819,13 @@ public class UserCenterPage {
             HttpURLConnection conn = null;
 
             try {
+                // 在后台线程获取有效令牌，必要时自动刷新
+                String token = auth.getValidAccessToken();
+
+                if (token == null || token.trim().isEmpty()) {
+                    throw new Exception("登录状态已失效");
+                }
+
                 URL url = new URL(
                     BASE + "/rest/v1/rpc/claim_daily_checkin"
                 );
