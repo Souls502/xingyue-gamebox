@@ -544,6 +544,107 @@ public class MainActivity extends Activity {
         );
     }
 
+                JSONArray array =
+                    new JSONArray(result.toString());
+
+                if (array.length() == 0) return;
+
+                JSONObject release = array.getJSONObject(0);
+
+                String version =
+                    release.optString("version", "");
+
+                int serverCode =
+                    release.optInt("version_code", 0);
+
+                String notes =
+                    release.optString("release_notes", "");
+
+                String apkUrl =
+                    release.optString("apk_url", "");
+
+                int currentCode =
+                    getPackageManager()
+                    .getPackageInfo(getPackageName(), 0)
+                    .versionCode;
+
+                if (serverCode > currentCode &&
+                    !apkUrl.isEmpty()) {
+
+                    runOnUiThread(() -> {
+                        showUpdateDialog(version, notes, apkUrl);
+                    });
+                }
+
+            } catch (Exception e) {
+                // 检查失败不影响正常使用
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        }).start();
+    }
+
+    // 显示更新提示
+    void showUpdateDialog(
+        String version,
+        String notes,
+        String apkUrl
+    ) {
+        if (isFinishing()) return;
+
+        if (notes == null || notes.trim().isEmpty()) {
+            notes = "优化功能，修复已知问题";
+        }
+
+        new AlertDialog.Builder(this)
+            .setTitle("✦ 发现新版本 " + version)
+            .setMessage(
+                "星月游戏盒有新版本可以更新！\n\n" +
+                "更新内容：\n" + notes +
+                "\n\n是否立即下载更新？"
+            )
+            .setPositiveButton("立即更新", (dialog, which) -> {
+                try {
+                    Intent intent = new Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse(apkUrl)
+                    );
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Toast.makeText(
+                        this,
+                        "无法打开下载链接",
+                        Toast.LENGTH_SHORT
+                    ).show();
+                }
+            })
+            .setNegativeButton("稍后再说", null)
+            .show();
+    }
+
+    GradientDrawable shape(int color) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(color);
+        d.setCornerRadius(22);
+        return d;
+    }
+
+    TextView label(String s, int size, int color) {
+        TextView t = new TextView(this);
+        t.setText(s);
+        t.setTextSize(size);
+        t.setTextColor(color);
+        return t;
+    }
+
+    int dp(float value) {
+        return (int) TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            value,
+            getResources().getDisplayMetrics()
+        );
+    }
+
     // 在线加载封面图片
     void loadCover(ImageView image, String imageUrl) {
         if (imageUrl == null || imageUrl.trim().isEmpty()) return;
@@ -978,7 +1079,7 @@ public class MainActivity extends Activity {
     // 查询当前游戏是否已经收藏
     boolean checkFavorite(Game game) throws Exception {
         String userId = userAuth.getUserId();
-        String token = userAuth.getAccessToken();
+        String token = userAuth.getValidAccessToken();
 
         if (userId.isEmpty() || token.isEmpty() || game.id < 0) {
             throw new Exception("请先登录账号");
@@ -1103,7 +1204,7 @@ public class MainActivity extends Activity {
             try {
                 boolean alreadySaved = checkFavorite(game);
                 String userId = userAuth.getUserId();
-                String token = userAuth.getAccessToken();
+                String token = userAuth.getValidAccessToken();
 
                 String path =
                     "/rest/v1/user_favorites" +
@@ -1328,3 +1429,4 @@ public class MainActivity extends Activity {
         showPageWithBottomNav(scroll, 0);
     }
 }
+
