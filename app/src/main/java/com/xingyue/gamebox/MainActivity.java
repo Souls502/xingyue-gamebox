@@ -406,22 +406,20 @@ public class MainActivity extends Activity {
         dialog.show();
     }
 
-    // 检查 APP 更新
+        // 检查 APP 更新
     void checkForUpdate() {
         new Thread(() -> {
             HttpURLConnection conn = null;
 
             try {
                 URL url = new URL(
-                    SUPABASE_URL +
-                    "/rest/v1/app_releases?select=version,version_code,release_notes,apk_url&is_latest=eq.true&order=created_at.desc&limit=1"
+                    "https://4.wc3.tech/rest/v1/app_releases"
                 );
 
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
-                conn.setRequestProperty("apikey", SUPABASE_KEY);
                 conn.setRequestProperty("Accept", "application/json");
 
                 int responseCode = conn.getResponseCode();
