@@ -30,11 +30,7 @@ import java.net.URL;
 
 public class UserCenterPage {
 
-    private static final String BASE =
-        "https://vavsdizrdsvavioxsmjh.supabase.co";
-
-    private static final String API_KEY =
-        "sb_publishable_r1RfRiRkwcDVOoOtO-Vj8w_sQAs2VIk";
+    private static final String BASE = "https://4.wc3.tech";
 
     private static final int BG = 0xFF100824;
     private static final int CARD = 0xFF32165E;
@@ -366,7 +362,7 @@ public class UserCenterPage {
         loadFavorites(items);
     }
 
-    // 从 Supabase 读取收藏记录及对应游戏资料
+    // 从星月游戏盒服务器读取收藏记录
     private void loadFavorites(LinearLayout items) {
         items.removeAllViews();
 
@@ -392,7 +388,7 @@ public class UserCenterPage {
 
                 String query = BASE
                     + "/rest/v1/user_favorites"
-                    + "?select=game_id,games(id,title,description,category,version,file_size,cover_url,download_url)"
+                    + "?select=game_id"
                     + "&user_id=eq." + Uri.encode(userId)
                     + "&order=created_at.desc";
 
@@ -401,7 +397,6 @@ public class UserCenterPage {
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
-                conn.setRequestProperty("apikey", API_KEY);
                 conn.setRequestProperty(
                     "Authorization", "Bearer " + token
                 );
@@ -427,32 +422,22 @@ public class UserCenterPage {
                 java.util.ArrayList<MainActivity.Game> result =
                     new java.util.ArrayList<>();
 
+                // 新服务器返回收藏的 game_id，再与主页面已加载的游戏列表匹配。
+                MainActivity main = (MainActivity) activity;
+
                 for (int i = 0; i < rows.length(); i++) {
                     JSONObject row = rows.optJSONObject(i);
                     if (row == null) continue;
 
-                    JSONObject gameObject = row.optJSONObject("games");
-                    if (gameObject == null) {
-                        JSONArray gameArray = row.optJSONArray("games");
-                        if (gameArray != null && gameArray.length() > 0) {
-                            gameObject = gameArray.optJSONObject(0);
+                    long gameId = row.optLong("game_id", -1);
+                    if (gameId <= 0) continue;
+
+                    for (MainActivity.Game game : main.games) {
+                        if (game.id == gameId) {
+                            result.add(game);
+                            break;
                         }
                     }
-                    if (gameObject == null) continue;
-
-                    MainActivity.Game game = new MainActivity.Game();
-                    game.id = gameObject.optLong(
-                        "id", row.optLong("game_id", -1)
-                    );
-                    game.name = gameObject.optString("title", "未命名游戏");
-                    game.description = gameObject.optString("description", "");
-                    game.type = gameObject.optString("category", "");
-                    game.version = gameObject.optString("version", "");
-                    game.fileSize = gameObject.optString("file_size", "");
-                    game.coverUrl = gameObject.optString("cover_url", "");
-                    game.downloadUrl = gameObject.optString("download_url", "");
-
-                    if (game.id > 0) result.add(game);
                 }
 
                 activity.runOnUiThread(() -> {
@@ -466,7 +451,6 @@ public class UserCenterPage {
                         return;
                     }
 
-                    MainActivity main = (MainActivity) activity;
                     for (MainActivity.Game game : result) {
                         addFavoriteItem(items, game, main);
                     }
@@ -532,7 +516,6 @@ public class UserCenterPage {
         TextView name = text(game.name, 16, WHITE);
         name.setTypeface(null, Typeface.BOLD);
         info.addView(name);
-
         String category = game.type == null || game.type.trim().isEmpty()
             ? "游戏" : game.type;
         TextView type = text(category, 12, MUTED);
@@ -609,7 +592,6 @@ public class UserCenterPage {
                         conn.setRequestMethod("DELETE");
                         conn.setConnectTimeout(15000);
                         conn.setReadTimeout(15000);
-                        conn.setRequestProperty("apikey", API_KEY);
                         conn.setRequestProperty(
                             "Authorization", "Bearer " + token
                         );
@@ -750,7 +732,7 @@ public class UserCenterPage {
 
                 URL url = new URL(
                     BASE + "/rest/v1/profiles?id=eq."
-                    + auth.getUserId()
+                    + Uri.encode(auth.getUserId())
                     + "&select=nickname,points"
                 );
 
@@ -758,7 +740,6 @@ public class UserCenterPage {
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(12000);
                 conn.setReadTimeout(12000);
-                conn.setRequestProperty("apikey", API_KEY);
                 conn.setRequestProperty(
                     "Authorization",
                     "Bearer " + token
@@ -796,7 +777,7 @@ public class UserCenterPage {
         }).start();
     }
 
-    // 调用 Supabase 云端每日签到功能
+    // 调用星月游戏盒服务器云端每日签到功能
     private void claimDailyCheckin() {
 
         if (checkinInProgress) {
@@ -835,8 +816,6 @@ public class UserCenterPage {
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
                 conn.setDoOutput(true);
-
-                conn.setRequestProperty("apikey", API_KEY);
                 conn.setRequestProperty(
                     "Authorization", "Bearer " + token
                 );
@@ -1055,4 +1034,4 @@ public class UserCenterPage {
             canvas.drawPath(path, paint);
         }
     }
-}
+                                }
