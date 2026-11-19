@@ -1,5 +1,6 @@
 package com.xingyue.gamebox;
 
+import android.content.Context;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.graphics.Canvas;
