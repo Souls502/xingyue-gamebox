@@ -34,11 +34,7 @@ import java.util.TimeZone;
 
 public class UserProfilePage {
 
-    private static final String BASE =
-        "https://vavsdizrdsvavioxsmjh.supabase.co";
-
-    private static final String API_KEY =
-        "sb_publishable_r1RfRiRkwcDVOoOtO-Vj8w_sQAs2VIk";
+    private static final String BASE = "https://4.wc3.tech";
 
     private static final int BG = 0xFF100824;
     private static final int CARD = 0xFF302044;
@@ -292,6 +288,7 @@ public class UserProfilePage {
         root.addView(label, params);
     }
 
+    // 从自建服务器读取当前用户昵称
     private void loadProfile() {
         if (loading) return;
         loading = true;
@@ -336,6 +333,7 @@ public class UserProfilePage {
         }).start();
     }
 
+    // 保存昵称到自建服务器
     private void saveProfile(Button save) {
         String nickname = nicknameInput
             .getText().toString().trim();
@@ -358,27 +356,12 @@ public class UserProfilePage {
         new Thread(() -> {
             try {
                 JSONObject body = new JSONObject();
-                body.put("id", auth.getUserId());
                 body.put("nickname", nickname);
 
-                SimpleDateFormat format =
-                    new SimpleDateFormat(
-                        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                        Locale.US
-                    );
-
-                format.setTimeZone(
-                    TimeZone.getTimeZone("UTC")
-                );
-
-                body.put(
-                    "updated_at",
-                    format.format(new Date())
-                );
-
                 request(
-                    "POST",
-                    "/rest/v1/profiles?on_conflict=id",
+                    "PATCH",
+                    "/rest/v1/profiles?id=eq."
+                        + auth.getUserId(),
                     body.toString()
                 );
 
@@ -409,103 +392,63 @@ public class UserProfilePage {
             }
         }).start();
     }
+    private String request(String method, String path, String body) throws Exception {
+        String token = auth.getValidAccessToken();
+        if (token == null || token.isEmpty()) {
+            throw new Exception("登录状态已失效，请重新登录");
+        }
 
-    private String request(
-        String method, String path, String body
-    ) throws Exception {
+        URL url = new URL(BASE + path);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod(method);
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(15000);
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        conn.setRequestProperty("Accept", "application/json");
 
-        HttpURLConnection conn = null;
-
-        try {
-            URL url = new URL(BASE + path);
-            conn = (HttpURLConnection)
-                url.openConnection();
-
-            conn.setRequestMethod(method);
-            conn.setConnectTimeout(15000);
-            conn.setReadTimeout(15000);
-
+        if (body != null) {
+            conn.setDoOutput(true);
             conn.setRequestProperty(
-                "apikey", API_KEY
-            );
-
-            conn.setRequestProperty(
-                "Authorization",
-                "Bearer " + auth.getValidAccessToken()
-            );
-
-            conn.setRequestProperty(
-                "Accept", "application/json"
-            );
-
-            if (body != null) {
-                conn.setDoOutput(true);
-
-                conn.setRequestProperty(
                     "Content-Type",
                     "application/json; charset=UTF-8"
-                );
+            );
 
-                conn.setRequestProperty(
-                    "Prefer",
-                    "resolution=merge-duplicates,return=minimal"
-                );
-
-                try (OutputStream out =
-                    conn.getOutputStream()) {
-                    out.write(body.getBytes("UTF-8"));
-                }
-            }
-
-            int code = conn.getResponseCode();
-
-            InputStream stream =
-                code >= 200 && code < 300
-                    ? conn.getInputStream()
-                    : conn.getErrorStream();
-
-            StringBuilder response =
-                new StringBuilder();
-
-            if (stream != null) {
-                try (BufferedReader reader =
-                    new BufferedReader(
-                        new InputStreamReader(
-                            stream, "UTF-8"
-                        )
-                    )) {
-                    String line;
-
-                    while ((line = reader.readLine())
-                        != null) {
-                        response.append(line);
-                    }
-                }
-            }
-
-            if (code < 200 || code >= 300) {
-                throw new Exception(
-                    "服务器返回 " + code + "："
-                    + response
-                );
-            }
-
-            return response.toString();
-
-        } finally {
-            if (conn != null) {
-                conn.disconnect();
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(body.getBytes("UTF-8"));
             }
         }
+
+        int code = conn.getResponseCode();
+        InputStream input = code >= 200 && code < 300
+                ? conn.getInputStream()
+                : conn.getErrorStream();
+
+        StringBuilder result = new StringBuilder();
+
+        if (input != null) {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(input, "UTF-8"))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    result.append(line);
+                }
+            }
+        }
+
+        conn.disconnect();
+
+        if (code < 200 || code >= 300) {
+            throw new Exception("服务器请求失败（" + code + "）：" + result);
+        }
+
+        return result.toString();
     }
 
-    // 与用户中心一致的月亮默认头像
-    private class MoonAvatar extends View {
+    private static class MoonAvatar extends View {
 
-        private final Paint paint =
-            new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        public MoonAvatar(Activity context) {
+        public MoonAvatar(Context context) {
             super(context);
         }
 
@@ -517,105 +460,34 @@ public class UserProfilePage {
             float h = getHeight();
             float cx = w / 2f;
             float cy = h / 2f;
-            float r = Math.min(w, h) * 0.46f;
-
-            // 紫色星空背景
-            paint.setShader(new LinearGradient(
-                0, 0, w, h,
-                0xFF35105F,
-                0xFF170A35,
-                Shader.TileMode.CLAMP
-            ));
-
-            canvas.drawCircle(
-                cx, cy, r, paint
-            );
+            float radius = Math.min(w, h) * 0.42f;
 
             paint.setShader(null);
+            paint.setColor(Color.rgb(91, 65, 150));
+            canvas.drawCircle(cx, cy, radius, paint);
 
-            // 紫色发光圆环
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dp(3));
-            paint.setColor(0xFFDDAAFF);
+            paint.setColor(Color.rgb(242, 220, 255));
+            canvas.drawCircle(cx - radius * 0.12f,
+                    cy - radius * 0.02f,
+                    radius * 0.62f,
+                    paint);
 
-            canvas.drawCircle(
-                cx, cy, r - dp(2), paint
-            );
+            paint.setColor(Color.rgb(91, 65, 150));
+            canvas.drawCircle(cx + radius * 0.18f,
+                    cy - radius * 0.22f,
+                    radius * 0.55f,
+                    paint);
 
-            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.WHITE);
+            canvas.drawCircle(cx + radius * 0.42f,
+                    cy - radius * 0.35f,
+                    radius * 0.055f,
+                    paint);
 
-            // 金色月亮
-            paint.setColor(0xFFFFD66E);
-
-            canvas.drawCircle(
-                cx - r * 0.05f,
-                cy,
-                r * 0.53f,
-                paint
-            );
-
-            // 遮挡月亮，形成弯月
-            paint.setColor(0xFF35105F);
-
-            canvas.drawCircle(
-                cx + r * 0.23f,
-                cy - r * 0.19f,
-                r * 0.46f,
-                paint
-            );
-
-            // 星星
-            paint.setColor(0xFFFFE28A);
-
-            drawStar(
-                canvas,
-                cx + r * 0.43f,
-                cy - r * 0.30f,
-                r * 0.17f
-            );
-
-            paint.setColor(0xFFFFE9B0);
-
-            canvas.drawCircle(
-                cx - r * 0.48f,
-                cy - r * 0.48f,
-                dp(1.5f),
-                paint
-            );
-        }
-
-        private void drawStar(
-            Canvas canvas,
-            float x,
-            float y,
-            float size
-        ) {
-            android.graphics.Path path =
-                new android.graphics.Path();
-
-            path.moveTo(x, y - size);
-            path.lineTo(
-                x + size * 0.25f,
-                y - size * 0.25f
-            );
-            path.lineTo(x + size, y);
-            path.lineTo(
-                x + size * 0.25f,
-                y + size * 0.25f
-            );
-            path.lineTo(x, y + size);
-            path.lineTo(
-                x - size * 0.25f,
-                y + size * 0.25f
-            );
-            path.lineTo(x - size, y);
-            path.lineTo(
-                x - size * 0.25f,
-                y - size * 0.25f
-            );
-            path.close();
-
-            canvas.drawPath(path, paint);
+            canvas.drawCircle(cx + radius * 0.62f,
+                    cy - radius * 0.05f,
+                    radius * 0.035f,
+                    paint);
         }
     }
-            }
+                              }
