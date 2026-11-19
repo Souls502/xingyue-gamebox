@@ -100,23 +100,24 @@ footer{color:#8f82b7;font-size:12px;margin-top:24px}
 <footer>星月游戏盒 · 官方下载页面</footer>
 </div>
 </div>
+
 <script>
 (async function(){
  const version=document.getElementById("version");
  const notes=document.getElementById("notes");
  const button=document.getElementById("download");
  const status=document.getElementById("status");
- const SUPABASE_URL="https://vavsdizrdsvavioxsmjh.supabase.co";
- const SUPABASE_KEY="sb_publishable_r1RfRiRkwcDVOoOtO-Vj8w_sQAs2VIk";
+
+ const API_BASE="https://4.wc3.tech";
 
  try{
-  const url=SUPABASE_URL+
+  const url=API_BASE+
    "/rest/v1/app_releases?select=version,release_notes,apk_url,file_size"+
    "&is_latest=eq.true&order=created_at.desc&limit=1";
 
   const response=await fetch(url,{
    method:"GET",
-   headers:{"apikey":SUPABASE_KEY},
+   headers:{"Accept":"application/json"},
    cache:"no-store"
   });
 
