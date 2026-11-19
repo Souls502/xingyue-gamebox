@@ -45,11 +45,7 @@ public class MainActivity extends Activity {
 
     UserAuth userAuth;
 
-    final String SUPABASE_URL =
-        "https://vavsdizrdsvavioxsmjh.supabase.co";
-
-    final String SUPABASE_KEY =
-        "sb_publishable_r1RfRiRkwcDVOoOtO-Vj8w_sQAs2VIk";
+    final String API_BASE = "https://4.wc3.tech";
 
     int purple = Color.rgb(19,14,35);
 
@@ -413,7 +409,7 @@ public class MainActivity extends Activity {
 
             try {
                 URL url = new URL(
-                    SUPABASE_URL +
+                    API_BASE +
                     "/rest/v1/app_releases?select=version,version_code,release_notes,apk_url&is_latest=eq.true&order=created_at.desc&limit=1"
                 );
 
@@ -421,7 +417,6 @@ public class MainActivity extends Activity {
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
-                conn.setRequestProperty("apikey", SUPABASE_KEY);
                 conn.setRequestProperty("Accept", "application/json");
 
                 int responseCode = conn.getResponseCode();
@@ -447,7 +442,6 @@ public class MainActivity extends Activity {
                     new JSONArray(result.toString());
 
                 if (array.length() == 0) return;
-
                 JSONObject release = array.getJSONObject(0);
 
                 String version =
@@ -657,7 +651,7 @@ public class MainActivity extends Activity {
 
             try {
                 URL url = new URL(
-                    SUPABASE_URL +
+                    API_BASE +
                     "/rest/v1/games?select=id,title,description,category,version,file_size,cover_url,download_url,is_active,sort_order&is_active=eq.true&order=sort_order.asc"
                 );
 
@@ -665,7 +659,6 @@ public class MainActivity extends Activity {
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
-                conn.setRequestProperty("apikey", SUPABASE_KEY);
                 conn.setRequestProperty("Accept", "application/json");
 
                 int responseCode = conn.getResponseCode();
@@ -897,8 +890,7 @@ public class MainActivity extends Activity {
                 refreshingByGesture ? "正在刷新游戏..." : "正在加载游戏..."
             );
             return;
-        }
-
+                }
         String key = search.getText().toString()
             .trim().toLowerCase();
 
@@ -992,12 +984,11 @@ public class MainActivity extends Activity {
         HttpURLConnection conn = null;
 
         try {
-            URL url = new URL(SUPABASE_URL + path);
+            URL url = new URL(API_BASE + path);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(15000);
             conn.setReadTimeout(15000);
-            conn.setRequestProperty("apikey", SUPABASE_KEY);
             conn.setRequestProperty("Authorization", "Bearer " + token);
             conn.setRequestProperty("Accept", "application/json");
 
@@ -1111,18 +1102,16 @@ public class MainActivity extends Activity {
                     "&game_id=eq." + game.id;
 
                 URL url = new URL(
-                    SUPABASE_URL + (alreadySaved
+                    API_BASE + (alreadySaved
                         ? path
                         : "/rest/v1/user_favorites")
                 );
 
                 conn = (HttpURLConnection) url.openConnection();
 
-                // 必须先设置请求方法、超时和认证请求头
                 conn.setRequestMethod(alreadySaved ? "DELETE" : "POST");
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
-                conn.setRequestProperty("apikey", SUPABASE_KEY);
                 conn.setRequestProperty(
                     "Authorization", "Bearer " + token
                 );
@@ -1133,12 +1122,8 @@ public class MainActivity extends Activity {
                     conn.setRequestProperty(
                         "Content-Type", "application/json"
                     );
-                    conn.setRequestProperty(
-                        "Prefer", "return=minimal"
-                    );
 
                     JSONObject body = new JSONObject();
-                    body.put("user_id", userId);
                     body.put("game_id", game.id);
 
                     byte[] data = body.toString().getBytes("UTF-8");
@@ -1327,4 +1312,4 @@ public class MainActivity extends Activity {
 
         showPageWithBottomNav(scroll, 0);
     }
-}
+                }
