@@ -245,16 +245,18 @@ public class MainActivity extends Activity {
             );
 
         } else {
-            new AlertDialog.Builder(this)
+                        new AlertDialog.Builder(this)
                 .setTitle("✦ 欢迎来到星月游戏盒")
                 .setMessage("登录后即可使用用户功能。")
-                .setPositiveButton("登录", (dialog, which) -> {
+                .setPositiveButton("邮箱登录", (dialog, which) -> {
                     showAuthDialog(false);
                 })
-                .setNeutralButton("注册账号", (dialog, which) -> {
+                .setNeutralButton("一键注册", (dialog, which) -> {
+                    oneTapRegister();
+                })
+                .setNegativeButton("邮箱注册", (dialog, which) -> {
                     showAuthDialog(true);
                 })
-                .setNegativeButton("取消", null)
                 .show();
         }
     }
@@ -269,11 +271,10 @@ public class MainActivity extends Activity {
 
         EditText emailInput = new EditText(this);
         emailInput.setSingleLine(true);
-        emailInput.setHint("请输入邮箱地址");
-        emailInput.setInputType(
-            InputType.TYPE_CLASS_TEXT |
-            InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+                emailInput.setHint(
+            register ? "请输入邮箱地址" : "请输入邮箱地址或星月账号"
         );
+        emailInput.setInputType(InputType.TYPE_CLASS_TEXT);
         form.addView(emailInput);
 
         EditText passwordInput = new EditText(this);
@@ -313,21 +314,41 @@ public class MainActivity extends Activity {
                 if (email.isEmpty() || password.isEmpty()) {
                     Toast.makeText(
                         this,
-                        "请填写邮箱和密码",
+                        "请填写账号和密码",
                         Toast.LENGTH_SHORT
                     ).show();
                     return;
                 }
 
-                if (!email.contains("@") ||
-                    !email.contains(".")) {
-                    Toast.makeText(
-                        this,
-                        "请输入正确的邮箱地址",
-                        Toast.LENGTH_SHORT
-                    ).show();
-                    return;
-                }
+                        if (register) {
+            if (!email.contains("@") ||
+                !email.contains(".") ||
+                email.contains(" ")) {
+                Toast.makeText(
+                    this,
+                    "请输入正确的邮箱地址",
+                    Toast.LENGTH_SHORT
+                ).show();
+                return;
+            }
+        } else {
+            boolean isEmail =
+                email.contains("@") &&
+                email.contains(".") &&
+                !email.contains(" ");
+
+            boolean isXingYueAccount =
+                email.matches("(?i)^XY[A-Z0-9]{8}$");
+
+            if (!isEmail && !isXingYueAccount) {
+                Toast.makeText(
+                    this,
+                    "请输入正确的邮箱或星月账号",
+                    Toast.LENGTH_SHORT
+                ).show();
+                return;
+            }
+                        }
 
                 if (password.length() < 6) {
                     Toast.makeText(
@@ -401,7 +422,130 @@ public class MainActivity extends Activity {
 
         dialog.show();
     }
+    
+    // 一键注册星月账号
+    void oneTapRegister() {
 
+        AlertDialog loadingDialog =
+            new AlertDialog.Builder(this)
+                .setTitle("正在创建星月账号")
+                .setMessage("请稍候，正在为你生成专属账号...")
+                .setCancelable(false)
+                .create();
+
+        loadingDialog.show();
+
+        new Thread(() -> {
+            try {
+                UserAuth.OneTapResult result =
+                    userAuth.oneTapRegister();
+
+                runOnUiThread(() -> {
+                    loadingDialog.dismiss();
+
+                    LinearLayout layout = new LinearLayout(this);
+                    layout.setOrientation(1);
+                    layout.setPadding(
+                        dp(22), dp(15), dp(22), dp(10)
+                    );
+
+                    TextView accountText = new TextView(this);
+                    accountText.setText(
+                        "星月账号：\n" + result.account
+                    );
+                    accountText.setTextSize(17);
+                    layout.addView(accountText);
+
+                    Button copyAccount = new Button(this);
+                    copyAccount.setText("复制星月账号");
+                    layout.addView(copyAccount);
+
+                    TextView passwordText = new TextView(this);
+                    passwordText.setText(
+                        "\n登录密码：\n" + result.password
+                    );
+                    passwordText.setTextSize(17);
+                    layout.addView(passwordText);
+
+                    Button copyPassword = new Button(this);
+                    copyPassword.setText("复制登录密码");
+                    layout.addView(copyPassword);
+
+                    TextView notice = new TextView(this);
+                    notice.setText(
+                        "\n请务必保存好账号和密码！\n" +
+                        "更换设备或退出登录后，需要使用这组信息重新登录。"
+                    );
+                    notice.setTextSize(14);
+                    layout.addView(notice);
+
+                    copyAccount.setOnClickListener(v -> {
+                        android.content.ClipboardManager clipboard =
+                            (android.content.ClipboardManager)
+                            getSystemService(CLIPBOARD_SERVICE);
+
+                        clipboard.setPrimaryClip(
+                            android.content.ClipData.newPlainText(
+                                "星月账号", result.account
+                            )
+                        );
+
+                        Toast.makeText(
+                            this, "账号已复制",
+                            Toast.LENGTH_SHORT
+                        ).show();
+                    });
+
+                    copyPassword.setOnClickListener(v -> {
+                        android.content.ClipboardManager clipboard =
+                            (android.content.ClipboardManager)
+                            getSystemService(CLIPBOARD_SERVICE);
+
+                        clipboard.setPrimaryClip(
+                            android.content.ClipData.newPlainText(
+                                "登录密码", result.password
+                            )
+                        );
+
+                        Toast.makeText(
+                            this, "密码已复制",
+                            Toast.LENGTH_SHORT
+                        ).show();
+                    });
+
+                    new AlertDialog.Builder(this)
+                        .setTitle("✦ 星月账号创建成功")
+                        .setView(layout)
+                        .setCancelable(false)
+                        .setPositiveButton("进入游戏盒", (dialog, which) -> {
+                            home();
+                            loadGames();
+                        })
+                        .show();
+                });
+
+            } catch (Exception e) {
+                String error = e.getMessage();
+
+                if (error == null || error.trim().isEmpty()) {
+                    error = "注册失败，请检查网络后重试。";
+                }
+
+                final String message = error;
+
+                runOnUiThread(() -> {
+                    loadingDialog.dismiss();
+
+                    new AlertDialog.Builder(this)
+                        .setTitle("一键注册失败")
+                        .setMessage(message)
+                        .setPositiveButton("知道了", null)
+                        .show();
+                });
+            }
+        }).start();
+    }
+    
     // 检查 APP 更新
     void checkForUpdate() {
         new Thread(() -> {
