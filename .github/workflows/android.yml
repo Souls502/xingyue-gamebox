@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - migration/server-api-20261119
 
 permissions:
   contents: read
