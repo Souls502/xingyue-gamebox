@@ -12,11 +12,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Locale;
 
 public class UserAuth {
 
     private static final String PREFS = "xingyue_user_session";
-
     private static final String BASE = "https://4.wc3.tech";
 
     private final Context context;
@@ -41,6 +41,11 @@ public class UserAuth {
         return prefs().getString("email", "");
     }
 
+    // 获取星月账号；邮箱注册用户返回空字符串。
+    public String getAccount() {
+        return prefs().getString("xingyue_account", "");
+    }
+
     public String getUserId() {
         return prefs().getString("user_id", "");
     }
@@ -49,8 +54,81 @@ public class UserAuth {
         return prefs().getString("access_token", "");
     }
 
-    // 获取有效的访问令牌。
-    // 必须在后台线程调用，不能在主线程调用。
+    // 一键注册成功后返回的账号和密码。
+    public static class OneTapResult {
+        public final String account;
+        public final String password;
+
+        public OneTapResult(String account, String password) {
+            this.account = account;
+            this.password = password;
+        }
+    }
+
+    private boolean isXingyueAccount(String value) {
+        return value != null &&
+            value.matches("(?i)^XY[A-Z0-9]{8}$");
+    }
+
+    // 一键注册：创建账号、保存登录状态并自动登录。
+    public OneTapResult oneTapRegister()
+            throws Exception {
+
+        JSONObject result = request(
+            "/auth/v1/signup/one-tap",
+            new JSONObject(),
+            null
+        );
+
+        String account = result.optString("account", "");
+
+        String password = result.optString(
+            "generated_password",
+            result.optString("password", "")
+        );
+
+        JSONObject user = result.optJSONObject("user");
+
+        String internalEmail = user == null
+            ? ""
+            : user.optString("email", "");
+
+        if (account.isEmpty() && !internalEmail.isEmpty()) {
+            int at = internalEmail.indexOf("@");
+            if (at > 0) {
+                account = internalEmail.substring(0, at)
+                    .toUpperCase(Locale.ROOT);
+            }
+        }
+
+        if (account.isEmpty() || password.isEmpty()) {
+            throw new Exception(
+                "注册信息不完整，服务器没有返回账号或密码。"
+            );
+        }
+
+        if (!isXingyueAccount(account)) {
+            throw new Exception(
+                "服务器返回的星月账号格式不正确。"
+            );
+        }
+
+        if (internalEmail.isEmpty()) {
+            internalEmail = account.toLowerCase(Locale.ROOT)
+                + "@xingyue.local";
+        }
+
+        saveSession(result, internalEmail);
+
+        prefs().edit()
+            .putString("xingyue_account", account)
+            .apply();
+
+        return new OneTapResult(account, password);
+    }
+
+    // 获取有效访问令牌。
+    // 必须在后台线程调用。
     public synchronized String getValidAccessToken()
             throws Exception {
 
@@ -63,16 +141,14 @@ public class UserAuth {
         long expiration = getTokenExpiration(accessToken);
         long now = System.currentTimeMillis() / 1000L;
 
-        // 令牌还有超过60秒才过期，直接使用。
         if (expiration > 0 && expiration > now + 60) {
             return accessToken;
         }
 
-        // 令牌即将过期或已经过期，自动刷新。
         return refreshSession();
     }
 
-    // 使用 refresh_token 向星月游戏盒服务器申请新令牌。
+    // 自动刷新登录令牌。
     public synchronized String refreshSession()
             throws Exception {
 
@@ -143,9 +219,8 @@ public class UserAuth {
         return newAccess;
     }
 
-    // 读取 JWT 中的过期时间。
+    // 读取 JWT 过期时间。
     private long getTokenExpiration(String token) {
-
         try {
             String[] parts = token.split("\\.");
 
@@ -170,6 +245,7 @@ public class UserAuth {
         }
     }
 
+    // 退出登录。
     public void logout() {
 
         String token = getAccessToken();
@@ -197,6 +273,7 @@ public class UserAuth {
         prefs().edit().clear().apply();
     }
 
+    // 邮箱注册，保留原有功能。
     public String signUp(String email, String password)
             throws Exception {
 
@@ -220,6 +297,7 @@ public class UserAuth {
         );
     }
 
+    // 登录：支持邮箱或星月账号。
     public String signIn(String email, String password)
             throws Exception {
 
@@ -237,8 +315,9 @@ public class UserAuth {
         return "登录成功！";
     }
 
+    // 保存登录凭证。
     private void saveSession(
-            JSONObject result, String email
+            JSONObject result, String loginName
     ) throws Exception {
 
         String access = result.optString(
@@ -252,7 +331,8 @@ public class UserAuth {
         JSONObject user = result.optJSONObject("user");
 
         String userId = user == null
-            ? "" : user.optString("id", "");
+            ? ""
+            : user.optString("id", "");
 
         if (access.isEmpty()) {
             throw new Exception(
@@ -260,27 +340,36 @@ public class UserAuth {
             );
         }
 
+        String savedEmail = user != null
+            ? user.optString("email", loginName)
+            : loginName;
+
         SharedPreferences.Editor editor = prefs().edit();
+
         editor.putString("access_token", access);
+        editor.putString("email", savedEmail);
 
         if (!refresh.isEmpty()) {
             editor.putString("refresh_token", refresh);
         }
 
-        editor.putString(
-            "email",
-            user != null
-                ? user.optString("email", email)
-                : email
-        );
-
         if (!userId.isEmpty()) {
             editor.putString("user_id", userId);
+        }
+
+        if (isXingyueAccount(loginName)) {
+            editor.putString(
+                "xingyue_account",
+                loginName.toUpperCase(Locale.ROOT)
+            );
+        } else {
+            editor.remove("xingyue_account");
         }
 
         editor.apply();
     }
 
+    // 网络请求。
     private JSONObject request(
             String path,
             JSONObject body,
@@ -363,10 +452,10 @@ public class UserAuth {
                     )
                 );
 
-                String lower = message.toLowerCase();
+                String lower = message.toLowerCase(Locale.ROOT);
 
                 if (lower.contains("invalid login credentials")) {
-                    message = "邮箱或密码不正确。";
+                    message = "邮箱、星月账号或密码不正确。";
 
                 } else if (lower.contains("user already registered")) {
                     message = "这个邮箱已经注册，请直接登录。";
