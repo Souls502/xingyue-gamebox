@@ -85,6 +85,7 @@ public class MainActivity extends Activity {
         String fileSize = "";
         String coverUrl = "";
         String downloadUrl = "";
+        int priceCents = 0;
     }
 
     @Override
@@ -422,7 +423,7 @@ public class MainActivity extends Activity {
 
         dialog.show();
     }
-    
+
     // 一键注册星月账号
     void oneTapRegister() {
 
@@ -545,7 +546,7 @@ public class MainActivity extends Activity {
             }
         }).start();
     }
-    
+
     // 检查 APP 更新
     void checkForUpdate() {
         new Thread(() -> {
@@ -682,6 +683,14 @@ public class MainActivity extends Activity {
         );
     }
 
+    // 格式化游戏价格
+    String formatGamePrice(int priceCents) {
+        if (priceCents <= 0) return "免费";
+        return "¥" + String.format(
+            java.util.Locale.US, "%.2f", priceCents / 100.0
+        );
+    }
+
     // 在线加载封面图片
     void loadCover(ImageView image, String imageUrl) {
         if (imageUrl == null || imageUrl.trim().isEmpty()) return;
@@ -727,7 +736,6 @@ public class MainActivity extends Activity {
     ) {
         FrameLayout frame = new FrameLayout(this);
         frame.setBackground(shape(0xFF49346C));
-
         ImageView image = new ImageView(this);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
 
@@ -796,7 +804,7 @@ public class MainActivity extends Activity {
             try {
                 URL url = new URL(
                     API_BASE +
-                    "/rest/v1/games?select=id,title,description,category,version,file_size,cover_url,download_url,is_active,sort_order&is_active=eq.true&order=sort_order.asc"
+                    "/rest/v1/games?select=id,title,description,category,version,file_size,cover_url,download_url,is_active,sort_order,price_cents&is_active=eq.true&order=sort_order.asc"
                 );
 
                 conn = (HttpURLConnection) url.openConnection();
@@ -841,6 +849,7 @@ public class MainActivity extends Activity {
                     game.fileSize = obj.optString("file_size", "");
                     game.coverUrl = obj.optString("cover_url", "");
                     game.downloadUrl = obj.optString("download_url", "");
+                    game.priceCents = obj.optInt("price_cents", 0);
 
                     if (!game.name.isEmpty()) {
                         newGames.add(game);
@@ -1088,11 +1097,21 @@ public class MainActivity extends Activity {
             tp.topMargin = 5;
             info.addView(type, tp);
 
+            TextView price = label(
+                formatGamePrice(game.priceCents),
+                14,
+                game.priceCents > 0 ? 0xFFFFD36A : 0xFF70DDA3
+            );
+
+            LinearLayout.LayoutParams priceParams =
+                new LinearLayout.LayoutParams(-1, -2);
+            priceParams.topMargin = 5;
+            info.addView(price, priceParams);
+
             TextView detail = label(
                 "查看详情 ›", 13, 0xFFD5A7FF
             );
             card.addView(detail);
-
             final int gameIndex = i;
 
             card.setOnClickListener(v -> {
@@ -1374,6 +1393,14 @@ public class MainActivity extends Activity {
         TextView type = label(game.type, 15, 0xFFB9AED5);
         type.setGravity(Gravity.CENTER);
         root.addView(type);
+
+        TextView price = label(
+            formatGamePrice(game.priceCents),
+            18,
+            game.priceCents > 0 ? 0xFFFFD36A : 0xFF70DDA3
+        );
+        price.setGravity(Gravity.CENTER);
+        root.addView(price);
 
         String description = game.description;
 
