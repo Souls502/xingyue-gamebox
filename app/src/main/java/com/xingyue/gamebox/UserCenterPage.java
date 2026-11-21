@@ -214,59 +214,34 @@ public class UserCenterPage {
         // 余额功能尚未开放，暂不读取或展示旧积分
         addStat(stats, "我的余额", "暂未开通");
 
-        // 余额提现横幅
-        LinearLayout member = new LinearLayout(activity);
-        member.setGravity(Gravity.CENTER_VERTICAL);
-        member.setPadding(dp(15), dp(15), dp(12), dp(15));
-        member.setBackground(gradient(
-            0xFF7B32D5, 0xFF39146F, 18
-        ));
+        // 余额提现横向菜单
+LinearLayout member = new LinearLayout(activity);
+member.setGravity(Gravity.CENTER_VERTICAL);
+member.setOrientation(LinearLayout.HORIZONTAL);
+member.setPadding(dp(20), dp(12), dp(20), dp(12));
+member.setBackground(gradient(
+    0xFF7B32D5, 0xFF39146F, 18
+));
 
-        LinearLayout.LayoutParams memberParams =
-            new LinearLayout.LayoutParams(-1, dp(118));
-        memberParams.topMargin = dp(20);
-        root.addView(member, memberParams);
+LinearLayout.LayoutParams memberParams =
+    new LinearLayout.LayoutParams(-1, dp(75));
+memberParams.topMargin = dp(20);
+root.addView(member, memberParams);
 
-        TextView crown = text("👑", 43, WHITE);
-        member.addView(crown);
+TextView memberTitle = text("余额提现", 19, WHITE);
+memberTitle.setTypeface(null, Typeface.BOLD);
+member.addView(memberTitle);
 
-        LinearLayout memberInfo = new LinearLayout(activity);
-        memberInfo.setOrientation(LinearLayout.VERTICAL);
-        memberInfo.setPadding(dp(10), 0, 0, 0);
-        member.addView(
-            memberInfo,
-            new LinearLayout.LayoutParams(0, -2, 1)
-        );
+TextView memberArrow = text(">", 24, WHITE);
+LinearLayout.LayoutParams arrowParams =
+    new LinearLayout.LayoutParams(-2, -2);
+arrowParams.leftMargin = dp(8);
+member.addView(memberArrow, arrowParams);
 
-        TextView memberTitle = text(
-            "余额提现", 21, WHITE
-        );
-        memberTitle.setTypeface(null, Typeface.BOLD);
-        memberInfo.addView(memberTitle);
-
-        TextView memberDesc = text(
-            "余额提现功能正在开发中，敬请期待", 12, 0xFFEBD9FF
-        );
-        LinearLayout.LayoutParams descParams =
-            new LinearLayout.LayoutParams(-1, -2);
-        descParams.topMargin = dp(7);
-        memberInfo.addView(memberDesc, descParams);
-
-        TextView gift = text("🎁", 37, WHITE);
-        member.addView(gift);
-
-        TextView viewMember = text(
-            "了解详情 ›", 13, 0xFF7134A5
-        );
-        viewMember.setGravity(Gravity.CENTER);
-        viewMember.setPadding(dp(10), dp(9), dp(10), dp(9));
-        viewMember.setBackground(shape(0xFFFFD6B0, 24));
-        member.addView(viewMember);
-
-        member.setOnClickListener(v ->
-            showMessage("余额提现",
-                "余额提现功能正在开发中，敬请期待。")
-        );
+member.setOnClickListener(v ->
+    showMessage("余额提现",
+        "余额提现功能正在开发中，敬请期待。")
+);
 
         // 两列功能区
         LinearLayout row1 = createMenuRow(root);
