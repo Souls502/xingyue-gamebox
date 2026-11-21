@@ -248,7 +248,7 @@ public class MainActivity extends Activity {
                         new AlertDialog.Builder(this)
                 .setTitle("✦ 欢迎来到星月游戏盒")
                 .setMessage("登录后即可使用用户功能。")
-                .setPositiveButton("邮箱登录", (dialog, which) -> {
+                .setPositiveButton("登录", (dialog, which) -> {
                     showAuthDialog(false);
                 })
                 .setNeutralButton("一键注册", (dialog, which) -> {
