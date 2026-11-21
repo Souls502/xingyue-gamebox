@@ -24,7 +24,6 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
@@ -43,10 +42,8 @@ public class UserCenterPage {
     private final Runnable onCategories;
 
     private TextView nicknameView;
-    private TextView pointsView;
 
     private String nickname = "星月玩家";
-    private boolean checkinInProgress = false;
 
     private UserCenterPage(
         Activity activity,
@@ -214,10 +211,10 @@ public class UserCenterPage {
         stats.setGravity(Gravity.CENTER);
         userCard.addView(stats);
 
-        // 显示云端真实积分
-        addStat(stats, "我的积分", "0");
+        // 余额功能尚未开放，暂不读取或展示旧积分
+        addStat(stats, "我的余额", "暂未开通");
 
-        // 会员中心横幅
+        // 余额提现横幅
         LinearLayout member = new LinearLayout(activity);
         member.setGravity(Gravity.CENTER_VERTICAL);
         member.setPadding(dp(15), dp(15), dp(12), dp(15));
@@ -242,13 +239,13 @@ public class UserCenterPage {
         );
 
         TextView memberTitle = text(
-            "会员中心", 21, WHITE
+            "余额提现", 21, WHITE
         );
         memberTitle.setTypeface(null, Typeface.BOLD);
         memberInfo.addView(memberTitle);
 
         TextView memberDesc = text(
-            "解锁更多特权，畅享专属福利", 12, 0xFFEBD9FF
+            "余额提现功能正在开发中，敬请期待", 12, 0xFFEBD9FF
         );
         LinearLayout.LayoutParams descParams =
             new LinearLayout.LayoutParams(-1, -2);
@@ -259,7 +256,7 @@ public class UserCenterPage {
         member.addView(gift);
 
         TextView viewMember = text(
-            "立即查看 ›", 13, 0xFF7134A5
+            "了解详情 ›", 13, 0xFF7134A5
         );
         viewMember.setGravity(Gravity.CENTER);
         viewMember.setPadding(dp(10), dp(9), dp(10), dp(9));
@@ -267,15 +264,17 @@ public class UserCenterPage {
         member.addView(viewMember);
 
         member.setOnClickListener(v ->
-            showMessage("会员中心",
-                "会员功能正在开发中，敬请期待。")
+            showMessage("余额提现",
+                "余额提现功能正在开发中，敬请期待。")
         );
 
         // 两列功能区
         LinearLayout row1 = createMenuRow(root);
 
-        addMenu(row1, "📅", "每日签到",
-            "签到领积分", () -> claimDailyCheckin());
+        addMenu(row1, "💰", "推广赚钱",
+            "推广功能正在开发中", () ->
+                showMessage("推广赚钱",
+                    "推广赚钱功能正在开发中，敬请期待。"));
 
         addMenu(row1, "👤", "我的资料",
             "编辑个人信息", () ->
@@ -704,10 +703,6 @@ public class UserCenterPage {
         TextView value = text(number, 25, WHITE);
         value.setTypeface(null, Typeface.BOLD);
 
-        if ("我的积分".equals(name)) {
-            pointsView = value;
-        }
-
         LinearLayout.LayoutParams valueParams =
             new LinearLayout.LayoutParams(-2, -2);
         valueParams.topMargin = dp(3);
@@ -722,7 +717,7 @@ public class UserCenterPage {
             .show();
     }
 
-    // 从云端读取昵称和真实积分
+    // 从云端读取用户昵称
     private void loadProfile() {
         new Thread(() -> {
             HttpURLConnection conn = null;
@@ -733,7 +728,7 @@ public class UserCenterPage {
                 URL url = new URL(
                     BASE + "/rest/v1/profiles?id=eq."
                     + Uri.encode(auth.getUserId())
-                    + "&select=nickname,points"
+                    + "&select=nickname"
                 );
 
                 conn = (HttpURLConnection) url.openConnection();
@@ -758,14 +753,9 @@ public class UserCenterPage {
                         "nickname", "星月玩家"
                     );
 
-                    int newPoints = obj.optInt("points", 0);
-
                     activity.runOnUiThread(() -> {
                         nickname = newName;
                         nicknameView.setText(nickname);
-                        pointsView.setText(
-                            String.valueOf(newPoints)
-                        );
                     });
                 }
 
@@ -773,149 +763,6 @@ public class UserCenterPage {
                 // 读取失败时保留默认显示
             } finally {
                 if (conn != null) conn.disconnect();
-            }
-        }).start();
-    }
-
-    // 调用星月游戏盒服务器云端每日签到功能
-    private void claimDailyCheckin() {
-
-        if (checkinInProgress) {
-            return;
-        }
-
-        String userId = auth.getUserId();
-
-        if (userId == null || userId.trim().isEmpty()) {
-            showMessage(
-                "暂时无法签到",
-                "请先登录账号，再进行每日签到。"
-            );
-            return;
-        }
-
-        checkinInProgress = true;
-
-        new Thread(() -> {
-            HttpURLConnection conn = null;
-
-            try {
-                // 在后台线程获取有效令牌，必要时自动刷新
-                String token = auth.getValidAccessToken();
-
-                if (token == null || token.trim().isEmpty()) {
-                    throw new Exception("登录状态已失效");
-                }
-
-                URL url = new URL(
-                    BASE + "/rest/v1/rpc/claim_daily_checkin"
-                );
-
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
-                conn.setDoOutput(true);
-                conn.setRequestProperty(
-                    "Authorization", "Bearer " + token
-                );
-                conn.setRequestProperty(
-                    "Content-Type", "application/json"
-                );
-                conn.setRequestProperty(
-                    "Accept", "application/json"
-                );
-
-                byte[] body = "{}".getBytes("UTF-8");
-
-                try (OutputStream output = conn.getOutputStream()) {
-                    output.write(body);
-                    output.flush();
-                }
-
-                int code = conn.getResponseCode();
-
-                InputStream responseStream =
-                    code >= 200 && code < 300
-                    ? conn.getInputStream()
-                    : conn.getErrorStream();
-
-                String responseText = responseStream == null
-                    ? ""
-                    : readStream(responseStream);
-
-                if (code >= 200 && code < 300) {
-
-                    JSONObject result =
-                        new JSONObject(responseText);
-
-                    boolean success =
-                        result.optBoolean("success", false);
-
-                    boolean alreadyCheckedIn =
-                        result.optBoolean(
-                            "already_checked_in", false
-                        );
-
-                    int newPoints =
-                        result.optInt("points", -1);
-
-                    activity.runOnUiThread(() -> {
-
-                        if (newPoints >= 0 && pointsView != null) {
-                            pointsView.setText(
-                                String.valueOf(newPoints)
-                            );
-                        }
-
-                        if (alreadyCheckedIn) {
-                            showMessage(
-                                "今日已签到",
-                                "你今天已经签到过了，明天再来吧！"
-                            );
-                        } else if (success) {
-                            showMessage(
-                                "签到成功",
-                                "恭喜获得 2 积分！\n当前积分："
-                                + (newPoints >= 0
-                                    ? newPoints : "已更新")
-                            );
-                        } else {
-                            showMessage(
-                                "签到未完成",
-                                "暂时无法确认签到结果，请稍后重试。"
-                            );
-                        }
-                    });
-
-                } else {
-                    String errorMessage =
-                        "签到请求失败，请稍后重试。";
-
-                    activity.runOnUiThread(() ->
-                        showMessage(
-                            "签到失败",
-                            errorMessage + "\n错误代码：" + code
-                        )
-                    );
-                }
-
-            } catch (Exception e) {
-                activity.runOnUiThread(() ->
-                    showMessage(
-                        "网络连接失败",
-                        "暂时无法连接签到服务，请检查网络后重试。"
-                    )
-                );
-
-            } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
-
-                activity.runOnUiThread(() ->
-                    checkinInProgress = false
-                );
             }
         }).start();
     }
@@ -1034,4 +881,4 @@ public class UserCenterPage {
             canvas.drawPath(path, paint);
         }
     }
-                                }
+                    }
