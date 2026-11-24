@@ -51,6 +51,8 @@ Game currentDetailGame;
 
     boolean waitingForPaymentReturn = false;
 
+    boolean purchaseStatusError = false;
+
     final String API_BASE = "https://4.wc3.tech";
 
     int purple = Color.rgb(19,14,35);
@@ -1429,12 +1431,16 @@ Game currentDetailGame;
                 }
 
                 if (!finalError.isEmpty()) {
-                    gameActionButton.setText("重新检查购买状态");
-                    Toast.makeText(
-                        this, finalError, Toast.LENGTH_SHORT
-                    ).show();
-                    return;
+    purchaseStatusError = true;
+    gameActionButton.setTag(false);
+    gameActionButton.setText("重新检查购买状态");
+    Toast.makeText(
+        this, finalError, Toast.LENGTH_SHORT
+    ).show();
+    return;
                 }
+
+                purchaseStatusError = false;
 
                 gameActionButton.setText(
                     finalPurchased ? "立即下载" : "立即购买"
@@ -1640,6 +1646,21 @@ startActivity(intent);
             return;
         }
 
+        if (userAuth.getUserId().isEmpty()) {
+    new AlertDialog.Builder(this)
+        .setTitle("需要登录")
+        .setMessage("登录后才能购买游戏。")
+        .setPositiveButton("知道了", null)
+        .show();
+    return;
+}
+
+        if (purchaseStatusError) {
+    gameActionButton.setText("正在重新检查...");
+    checkGamePurchaseStatus(game);
+    return;
+}
+
         Object tag = gameActionButton == null
             ? null : gameActionButton.getTag();
 
@@ -1790,6 +1811,7 @@ startActivity(intent);
         loadFavoriteState(game, favorite);
 
                 currentDetailGame = game;
+        purchaseStatusError = false;
 
         gameActionButton = label(
             game.priceCents <= 0
