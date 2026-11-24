@@ -28,6 +28,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
@@ -44,6 +45,11 @@ public class MainActivity extends Activity {
     ArrayList<Game> games = new ArrayList<>();
 
     UserAuth userAuth;
+
+    TextView gameActionButton;
+Game currentDetailGame;
+
+    boolean waitingForPaymentReturn = false;
 
     final String API_BASE = "https://4.wc3.tech";
 
@@ -1352,6 +1358,344 @@ public class MainActivity extends Activity {
             }
         }).start();
     }
+    
+        // 检查当前用户是否已经购买该游戏
+    void checkGamePurchaseStatus(Game game) {
+        new Thread(() -> {
+            boolean purchased = false;
+            String error = "";
+
+            try {
+                String token = userAuth.getValidAccessToken();
+
+                URL url = new URL(API_BASE + "/pay/purchases");
+                HttpURLConnection conn =
+                    (HttpURLConnection) url.openConnection();
+
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(15000);
+                conn.setRequestProperty(
+                    "Authorization", "Bearer " + token
+                );
+
+                int code = conn.getResponseCode();
+
+                if (code == 200) {
+                    BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(
+                            conn.getInputStream(), "UTF-8"
+                        )
+                    );
+
+                    StringBuilder result = new StringBuilder();
+                    String line;
+
+                    while ((line = reader.readLine()) != null) {
+                        result.append(line);
+                    }
+
+                    reader.close();
+
+                    JSONArray array =
+                        new JSONArray(result.toString());
+
+                    for (int i = 0; i < array.length(); i++) {
+                        JSONObject item = array.getJSONObject(i);
+
+                        if (item.optLong("game_id", -1) == game.id) {
+                            purchased = true;
+                            break;
+                        }
+                    }
+                } else {
+                    error = "购买状态查询失败，请稍后重试";
+                }
+
+                conn.disconnect();
+
+            } catch (Exception e) {
+                error = "无法查询购买状态，请检查登录和网络";
+            }
+
+            final boolean finalPurchased = purchased;
+            final String finalError = error;
+
+            runOnUiThread(() -> {
+                if (currentDetailGame == null ||
+                    currentDetailGame.id != game.id ||
+                    gameActionButton == null) {
+                    return;
+                }
+
+                if (!finalError.isEmpty()) {
+                    gameActionButton.setText("重新检查购买状态");
+                    Toast.makeText(
+                        this, finalError, Toast.LENGTH_SHORT
+                    ).show();
+                    return;
+                }
+
+                gameActionButton.setText(
+                    finalPurchased ? "立即下载" : "立即购买"
+                );
+
+                gameActionButton.setTag(finalPurchased);
+            });
+
+        }).start();
+    }
+
+    // 处理游戏详情页主按钮
+        // 选择支付方式
+    void showPaymentMethodDialog(Game game) {
+        String[] methods = {"支付宝", "微信支付"};
+        String[] values = {"alipay", "wechat"};
+
+        new AlertDialog.Builder(this)
+            .setTitle("选择支付方式")
+            .setItems(methods, (dialog, which) -> {
+                createPaymentOrder(game, values[which]);
+            })
+            .setNegativeButton("取消", null)
+            .show();
+    }
+
+        // 创建支付订单并申请一次性支付凭证
+    void createPaymentOrder(Game game, String paymentMethod) {
+        new Thread(() -> {
+            String checkoutUrl = "";
+            String error = "";
+
+            HttpURLConnection conn = null;
+
+            try {
+                String token = userAuth.getValidAccessToken();
+
+                // 第一步：创建订单
+                URL orderUrl = new URL(API_BASE + "/pay/orders");
+                conn = (HttpURLConnection) orderUrl.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(15000);
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty(
+                    "Authorization", "Bearer " + token
+                );
+
+                JSONObject orderBody = new JSONObject();
+                orderBody.put("game_id", game.id);
+                orderBody.put("payment_method", paymentMethod);
+
+                OutputStreamWriter orderWriter =
+                    new OutputStreamWriter(
+                        conn.getOutputStream(), "UTF-8"
+                    );
+                orderWriter.write(orderBody.toString());
+                orderWriter.flush();
+                orderWriter.close();
+
+                int orderCode = conn.getResponseCode();
+
+                if (orderCode != 200 && orderCode != 201) {
+                    throw new Exception("创建订单失败，HTTP " + orderCode);
+                }
+
+                BufferedReader orderReader = new BufferedReader(
+                    new InputStreamReader(
+                        conn.getInputStream(), "UTF-8"
+                    )
+                );
+
+                StringBuilder orderResult = new StringBuilder();
+                String line;
+
+                while ((line = orderReader.readLine()) != null) {
+                    orderResult.append(line);
+                }
+
+                orderReader.close();
+                conn.disconnect();
+                conn = null;
+
+                JSONObject orderJson =
+                    new JSONObject(orderResult.toString());
+
+                String orderNo = orderJson.optString("order_no", "");
+
+                if (orderNo.isEmpty()) {
+                    throw new Exception("服务器没有返回订单号");
+                }
+
+                // 第二步：申请一次性支付凭证
+                URL checkoutTokenUrl =
+                    new URL(API_BASE + "/pay/checkout-token");
+
+                conn = (HttpURLConnection)
+                    checkoutTokenUrl.openConnection();
+
+                conn.setRequestMethod("POST");
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(15000);
+                conn.setDoOutput(true);
+                conn.setRequestProperty(
+                    "Content-Type", "application/json"
+                );
+                conn.setRequestProperty(
+                    "Authorization", "Bearer " + token
+                );
+
+                JSONObject tokenBody = new JSONObject();
+                tokenBody.put("order_no", orderNo);
+
+                OutputStreamWriter tokenWriter =
+                    new OutputStreamWriter(
+                        conn.getOutputStream(), "UTF-8"
+                    );
+
+                tokenWriter.write(tokenBody.toString());
+                tokenWriter.flush();
+                tokenWriter.close();
+
+                int tokenCode = conn.getResponseCode();
+
+                if (tokenCode != 200) {
+                    throw new Exception(
+                        "申请支付凭证失败，HTTP " + tokenCode
+                    );
+                }
+
+                BufferedReader tokenReader = new BufferedReader(
+                    new InputStreamReader(
+                        conn.getInputStream(), "UTF-8"
+                    )
+                );
+
+                StringBuilder tokenResult = new StringBuilder();
+
+                while ((line = tokenReader.readLine()) != null) {
+                    tokenResult.append(line);
+                }
+
+                tokenReader.close();
+
+                JSONObject tokenJson =
+                    new JSONObject(tokenResult.toString());
+
+                checkoutUrl =
+                    tokenJson.optString("checkout_url", "");
+
+                if (checkoutUrl.isEmpty()) {
+                    throw new Exception("服务器没有返回支付链接");
+                }
+
+            } catch (Exception e) {
+                error = e.getMessage() == null
+                    ? "支付请求失败，请稍后重试"
+                    : e.getMessage();
+
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+
+            final String finalUrl = checkoutUrl;
+            final String finalError = error;
+
+            runOnUiThread(() -> {
+                if (!finalError.isEmpty()) {
+                    Toast.makeText(
+                        this, finalError, Toast.LENGTH_LONG
+                    ).show();
+                    return;
+                }
+
+                try {
+                    Intent intent = new Intent(
+    Intent.ACTION_VIEW,
+    Uri.parse(finalUrl)
+);
+
+waitingForPaymentReturn = true;
+startActivity(intent);
+
+                } catch (Exception e) {
+                    waitingForPaymentReturn = false;
+                    Toast.makeText(
+                        this,
+                        "无法打开支付页面",
+                        Toast.LENGTH_SHORT
+                    ).show();
+                }
+            });
+
+        }).start();
+    }
+    
+    void handleGameAction(Game game) {
+        if (game.priceCents <= 0) {
+            downloadGame(game);
+            return;
+        }
+
+        Object tag = gameActionButton == null
+            ? null : gameActionButton.getTag();
+
+        if (Boolean.TRUE.equals(tag)) {
+            downloadGame(game);
+            return;
+        }
+
+        if (userAuth.getUserId().isEmpty()) {
+            new AlertDialog.Builder(this)
+                .setTitle("需要登录")
+                .setMessage("登录后才能购买游戏。")
+                .setPositiveButton("知道了", null)
+                .show();
+            return;
+        }
+
+        showPaymentMethodDialog(game);
+    }
+
+    // 打开游戏下载地址
+    void downloadGame(Game game) {
+        if (game.downloadUrl == null ||
+            game.downloadUrl.isEmpty()) {
+            Toast.makeText(
+                this, "暂未提供下载", Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        try {
+            Intent intent = new Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse(game.downloadUrl)
+            );
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(
+                this, "无法打开下载链接", Toast.LENGTH_SHORT
+            ).show();
+        }
+    }
+
+        @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (waitingForPaymentReturn) {
+            waitingForPaymentReturn = false;
+
+            if (currentDetailGame != null &&
+                currentDetailGame.priceCents > 0) {
+                checkGamePurchaseStatus(currentDetailGame);
+            }
+        }
+    }
 
     void showDetail(int index) {
         Game game = games.get(index);
@@ -1445,41 +1789,32 @@ public class MainActivity extends Activity {
 
         loadFavoriteState(game, favorite);
 
-        TextView download = label(
-            "立即下载", 18, Color.WHITE
+                currentDetailGame = game;
+
+        gameActionButton = label(
+            game.priceCents <= 0
+                ? "立即下载"
+                : "正在检查购买状态...",
+            18,
+            Color.WHITE
         );
-        download.setGravity(Gravity.CENTER);
-        download.setPadding(20, 16, 20, 16);
-        download.setBackground(shape(0xFF7545B5));
+
+        gameActionButton.setGravity(Gravity.CENTER);
+        gameActionButton.setPadding(20, 16, 20, 16);
+        gameActionButton.setBackground(shape(0xFF7545B5));
 
         LinearLayout.LayoutParams bp =
             new LinearLayout.LayoutParams(-1, -2);
         bp.topMargin = 18;
-        root.addView(download, bp);
+        root.addView(gameActionButton, bp);
 
-        download.setOnClickListener(v -> {
-            if (!game.downloadUrl.isEmpty()) {
-                try {
-                    Intent intent = new Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse(game.downloadUrl)
-                    );
-                    startActivity(intent);
-                } catch (Exception e) {
-                    Toast.makeText(
-                        this,
-                        "无法打开下载链接",
-                        Toast.LENGTH_SHORT
-                    ).show();
-                }
-            } else {
-                Toast.makeText(
-                    this,
-                    "暂未提供下载",
-                    Toast.LENGTH_SHORT
-                ).show();
-            }
+        gameActionButton.setOnClickListener(v -> {
+            handleGameAction(game);
         });
+
+        if (game.priceCents > 0) {
+            checkGamePurchaseStatus(game);
+        }
 
         showPageWithBottomNav(scroll, 0);
     }
