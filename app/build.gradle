@@ -10,7 +10,7 @@ android {
         applicationId 'com.xingyue.gamebox'
         minSdk 23
         targetSdk 35
-        versionCode 3
-        versionName '1.0.3'
+        versionCode (project.findProperty('versionCode') ?: '4').toInteger()
+        versionName project.findProperty('versionName') ?: '1.0.4'
     }
 }
