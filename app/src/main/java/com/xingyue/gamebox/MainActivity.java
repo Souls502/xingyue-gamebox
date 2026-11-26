@@ -1840,4 +1840,17 @@ startActivity(intent);
 
         showPageWithBottomNav(scroll, 0);
     }
+
+    @Override
+protected void onActivityResult(
+        int requestCode, int resultCode, Intent data) {
+    super.onActivityResult(requestCode, resultCode, data);
+
+    if (requestCode == 7301 &&
+            resultCode == RESULT_OK &&
+            data != null &&
+            data.getData() != null) {
+        ReferralCenterPage.onQrPicked(this, data.getData());
+    }
+}
                 }
