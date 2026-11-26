@@ -247,9 +247,10 @@ member.setOnClickListener(v ->
         LinearLayout row1 = createMenuRow(root);
 
         addMenu(row1, "💰", "推广赚钱",
-            "推广功能正在开发中", () ->
-                showMessage("推广赚钱",
-                    "推广赚钱功能正在开发中，敬请期待。"));
+    "邀请码 · 推广收益 · 提现", () ->
+        ReferralCenterPage.open(
+            activity, auth, () -> show()
+        ));
 
         addMenu(row1, "👤", "我的资料",
             "编辑个人信息", () ->
