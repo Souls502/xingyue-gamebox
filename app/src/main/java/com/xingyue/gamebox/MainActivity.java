@@ -1034,8 +1034,8 @@ Game currentDetailGame;
         }).start();
     }
 
-    // 点击首页公告按钮，读取所有已发布公告
-void showAnnouncementList() {
+// 首页点击公告，直接显示最新公告内容
+void showLatestAnnouncementFromServer() {
     new Thread(() -> {
         HttpURLConnection conn = null;
 
@@ -1086,38 +1086,19 @@ void showAnnouncementList() {
                     return;
                 }
 
-                String[] titles = new String[array.length()];
+                JSONObject item = array.optJSONObject(0);
 
-                for (int i = 0; i < array.length(); i++) {
-                    JSONObject item = array.optJSONObject(i);
+                if (item == null) return;
 
-                    titles[i] = item == null
-                        ? "公告"
-                        : item.optString("title", "公告");
-                }
+                String title = item.optString(
+                    "title", "公告"
+                );
 
-                new AlertDialog.Builder(this)
-                    .setTitle("📢 公告列表")
-                    .setItems(titles, (dialog, which) -> {
-                        JSONObject item =
-                            array.optJSONObject(which);
+                String content = item.optString(
+                    "content", ""
+                );
 
-                        if (item == null) return;
-
-                        String title = item.optString(
-                            "title", "公告"
-                        );
-
-                        String content = item.optString(
-                            "content", ""
-                        );
-
-                        showAnnouncementDetail(
-                            title, content
-                        );
-                    })
-                    .setNegativeButton("关闭", null)
-                    .show();
+                showAnnouncementDetail(title, content);
             });
 
         } catch (Exception e) {
@@ -1134,19 +1115,7 @@ void showAnnouncementList() {
         }
     }).start();
 }
-
-// 显示公告完整内容
-void showAnnouncementDetail(
-    String title,
-    String content
-) {
-    new AlertDialog.Builder(this)
-        .setTitle("📢 " + title)
-        .setMessage(content)
-        .setPositiveButton("知道了", null)
-        .show();
-}
-
+    
     // 显示最新公告弹窗
     void showLatestAnnouncement(String title, String content) {
         android.content.SharedPreferences prefs =
@@ -1252,7 +1221,7 @@ announcementButton.setBackground(
 headingRow.addView(announcementButton);
 
 announcementButton.setOnClickListener(v ->
-    showAnnouncementList()
+    showLatestAnnouncementFromServer()
 );
 
         categoryBar = new LinearLayout(this);
