@@ -260,10 +260,9 @@ member.setOnClickListener(v ->
 
         LinearLayout row2 = createMenuRow(root);
 
-        addMenu(row2, "🔔", "消息通知",
-            "查看系统消息", () ->
-                showMessage("消息通知",
-                    "消息功能正在开发中，敬请期待。"));
+                addMenu(row2, "💬", "联系客服",
+            "在线咨询客服", () ->
+                CustomerServicePage.open(activity, auth));
 
         addMenu(row2, "⭐", "我的收藏",
             "管理收藏游戏", () -> showFavorites());
