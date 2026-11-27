@@ -1115,6 +1115,18 @@ void showLatestAnnouncementFromServer() {
         }
     }).start();
 }
+
+    // 显示公告标题和完整内容
+void showAnnouncementDetail(
+    String title,
+    String content
+) {
+    new AlertDialog.Builder(this)
+        .setTitle("📢 " + title)
+        .setMessage(content)
+        .setPositiveButton("知道了", null)
+        .show();
+}
     
     // 显示最新公告弹窗
     void showLatestAnnouncement(String title, String content) {
