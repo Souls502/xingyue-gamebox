@@ -1034,6 +1034,119 @@ Game currentDetailGame;
         }).start();
     }
 
+    // 点击首页公告按钮，读取所有已发布公告
+void showAnnouncementList() {
+    new Thread(() -> {
+        HttpURLConnection conn = null;
+
+        try {
+            URL url = new URL(
+                API_BASE + "/announcements/v1/public"
+            );
+
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(15000);
+            conn.setRequestProperty(
+                "Accept", "application/json"
+            );
+
+            int code = conn.getResponseCode();
+
+            if (code != 200) {
+                throw new Exception("HTTP " + code);
+            }
+
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(
+                    conn.getInputStream(), "UTF-8"
+                )
+            );
+
+            StringBuilder result = new StringBuilder();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                result.append(line);
+            }
+
+            reader.close();
+
+            JSONArray array =
+                new JSONArray(result.toString());
+
+            runOnUiThread(() -> {
+                if (array.length() == 0) {
+                    new AlertDialog.Builder(this)
+                        .setTitle("📢 公告")
+                        .setMessage("暂时没有已发布的公告")
+                        .setPositiveButton("知道了", null)
+                        .show();
+                    return;
+                }
+
+                String[] titles = new String[array.length()];
+
+                for (int i = 0; i < array.length(); i++) {
+                    JSONObject item = array.optJSONObject(i);
+
+                    titles[i] = item == null
+                        ? "公告"
+                        : item.optString("title", "公告");
+                }
+
+                new AlertDialog.Builder(this)
+                    .setTitle("📢 公告列表")
+                    .setItems(titles, (dialog, which) -> {
+                        JSONObject item =
+                            array.optJSONObject(which);
+
+                        if (item == null) return;
+
+                        String title = item.optString(
+                            "title", "公告"
+                        );
+
+                        String content = item.optString(
+                            "content", ""
+                        );
+
+                        showAnnouncementDetail(
+                            title, content
+                        );
+                    })
+                    .setNegativeButton("关闭", null)
+                    .show();
+            });
+
+        } catch (Exception e) {
+            runOnUiThread(() ->
+                Toast.makeText(
+                    this,
+                    "公告加载失败，请检查网络后重试",
+                    Toast.LENGTH_SHORT
+                ).show()
+            );
+
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }).start();
+}
+
+// 显示公告完整内容
+void showAnnouncementDetail(
+    String title,
+    String content
+) {
+    new AlertDialog.Builder(this)
+        .setTitle("📢 " + title)
+        .setMessage(content)
+        .setPositiveButton("知道了", null)
+        .show();
+}
+
     // 显示最新公告弹窗
     void showLatestAnnouncement(String title, String content) {
         android.content.SharedPreferences prefs =
@@ -1107,14 +1220,40 @@ Game currentDetailGame;
         search.setBackground(shape(0xFF302546));
         root.addView(search);
 
-        TextView heading = label("游戏分类", 21, Color.WHITE);
-        heading.setTypeface(null, Typeface.BOLD);
+        LinearLayout headingRow = new LinearLayout(this);
+headingRow.setOrientation(LinearLayout.HORIZONTAL);
+headingRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        LinearLayout.LayoutParams hp =
-            new LinearLayout.LayoutParams(-1, -2);
-        hp.topMargin = 25;
-        hp.bottomMargin = 12;
-        root.addView(heading, hp);
+LinearLayout.LayoutParams hp =
+    new LinearLayout.LayoutParams(-1, -2);
+hp.topMargin = 25;
+hp.bottomMargin = 12;
+root.addView(headingRow, hp);
+
+TextView heading = label("游戏分类", 21, Color.WHITE);
+heading.setTypeface(null, Typeface.BOLD);
+
+headingRow.addView(
+    heading,
+    new LinearLayout.LayoutParams(0, -2, 1)
+);
+
+TextView announcementButton = label(
+    "📢 公告", 14, Color.WHITE
+);
+announcementButton.setGravity(Gravity.CENTER);
+announcementButton.setPadding(
+    dp(13), dp(8), dp(13), dp(8)
+);
+announcementButton.setBackground(
+    shape(0xFF49346C)
+);
+
+headingRow.addView(announcementButton);
+
+announcementButton.setOnClickListener(v ->
+    showAnnouncementList()
+);
 
         categoryBar = new LinearLayout(this);
         categoryBar.setOrientation(0);
