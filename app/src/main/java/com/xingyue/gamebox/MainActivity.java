@@ -952,6 +952,116 @@ Game currentDetailGame;
         }).start();
     }
 
+        // 获取最新一条已发布公告
+    void loadAnnouncements() {
+        new Thread(() -> {
+            HttpURLConnection conn = null;
+
+            try {
+                URL url = new URL(
+                    API_BASE + "/announcements/v1/public"
+                );
+
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(15000);
+                conn.setRequestProperty("Accept", "application/json");
+
+                if (conn.getResponseCode() != 200) {
+                    return;
+                }
+
+                BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(
+                        conn.getInputStream(), "UTF-8"
+                    )
+                );
+
+                StringBuilder result = new StringBuilder();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    result.append(line);
+                }
+
+                reader.close();
+
+                JSONArray array = new JSONArray(result.toString());
+
+                if (array.length() == 0) {
+                    return;
+                }
+
+                JSONObject obj = array.getJSONObject(0);
+
+                String title = obj.optString("title", "");
+                String content = obj.optString("content", "");
+
+                if (title.trim().isEmpty() ||
+                    content.trim().isEmpty()) {
+                    return;
+                }
+
+                runOnUiThread(() -> {
+                    String today = new java.text.SimpleDateFormat(
+                        "yyyy-MM-dd",
+                        java.util.Locale.getDefault()
+                    ).format(new java.util.Date());
+
+                    android.content.SharedPreferences prefs =
+                        getSharedPreferences(
+                            "announcement_settings",
+                            MODE_PRIVATE
+                        );
+
+                    String hiddenDate = prefs.getString(
+                        "hidden_announcement_date", ""
+                    );
+
+                    if (!today.equals(hiddenDate)) {
+                        showLatestAnnouncement(title, content);
+                    }
+                });
+
+            } catch (Exception e) {
+                // 公告加载失败不影响游戏盒正常使用
+            } finally {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            }
+        }).start();
+    }
+
+    // 显示最新公告弹窗
+    void showLatestAnnouncement(String title, String content) {
+        android.content.SharedPreferences prefs =
+            getSharedPreferences(
+                "announcement_settings",
+                MODE_PRIVATE
+            );
+
+        String today = new java.text.SimpleDateFormat(
+            "yyyy-MM-dd",
+            java.util.Locale.getDefault()
+        ).format(new java.util.Date());
+
+        new AlertDialog.Builder(this)
+            .setTitle("📢 " + title)
+            .setMessage(content)
+            .setCancelable(true)
+            .setPositiveButton("今日不再显示", (dialog, which) -> {
+                prefs.edit()
+                    .putString("hidden_announcement_date", today)
+                    .apply();
+            })
+            .setNegativeButton("关闭", (dialog, which) -> {
+                dialog.dismiss();
+            })
+            .show();
+    }
+
     void home() {
         PullToRefreshScrollView scroll =
             new PullToRefreshScrollView();
