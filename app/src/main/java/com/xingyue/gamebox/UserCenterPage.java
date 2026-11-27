@@ -185,9 +185,6 @@ public class UserCenterPage {
         nicknameView.setTypeface(null, Typeface.BOLD);
         nameRow.addView(nicknameView);
 
-        TextView vip = text("  👑普通会员", 13, 0xFFFFD77D);
-        nameRow.addView(vip);
-
         TextView email = text(
             auth.getEmail(), 14, 0xFFE0C9FF
         );
