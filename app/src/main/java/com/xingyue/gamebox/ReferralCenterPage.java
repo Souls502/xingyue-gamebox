@@ -114,6 +114,9 @@ public class ReferralCenterPage {
 
         Button share = button("分享我的邀请码");
         share.setOnClickListener(v -> shareInvite());
+        
+        Button bindInvite = button("输入邀请码");
+bindInvite.setOnClickListener(v -> showBindInviteDialog());
 
         TextView qrTitle = text("微信提现收款码", 18, WHITE);
         qrTitle.setTypeface(null, Typeface.BOLD);
@@ -245,6 +248,58 @@ public class ReferralCenterPage {
             "\n请复制此链接到浏览器打开，下载并安装 App，首次注册即可自动绑定邀请关系。");
         activity.startActivity(Intent.createChooser(send, "分享邀请码"));
     }
+
+    private void showBindInviteDialog() {
+    EditText input = new EditText(activity);
+    input.setSingleLine(true);
+    input.setHint("请输入对方的邀请码");
+    input.setFilters(new android.text.InputFilter[]{
+        new android.text.InputFilter.LengthFilter(16)
+    });
+
+    new AlertDialog.Builder(activity)
+        .setTitle("绑定邀请人")
+        .setMessage("请输入邀请人的邀请码。绑定成功后不可更换。")
+        .setView(input)
+        .setNegativeButton("取消", null)
+        .setPositiveButton("确认绑定", (dialog, which) -> {
+            String code = input.getText().toString().trim();
+            if (code.isEmpty()) {
+                toast("请输入邀请码");
+                return;
+            }
+            submitInviteBinding(code);
+        })
+        .show();
+}
+
+private void submitInviteBinding(String code) {
+    new Thread(() -> {
+        try {
+            JSONObject body = new JSONObject();
+            body.put("invite_code", code);
+
+            JSONObject result = request(
+                "POST",
+                "/referral/v1/bind",
+                body,
+                null
+            );
+
+            activity.runOnUiThread(() -> {
+                toast(result.optString(
+                    "message",
+                    "邀请人绑定成功"
+                ));
+                show();
+            });
+        } catch (Exception e) {
+            activity.runOnUiThread(() ->
+                toast("绑定失败：" + e.getMessage())
+            );
+        }
+    }).start();
+}
 
     private void chooseQr() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
