@@ -242,7 +242,7 @@ public class ReferralCenterPage {
         send.putExtra(Intent.EXTRA_TEXT,
             "我在使用星月游戏盒，邀请你一起体验！\n我的邀请码：" + code +
             "\n下载地址：" + BASE + "/?invite=" + Uri.encode(code) +
-"\n通过此链接下载并安装，首次打开 App 后注册即可自动绑定邀请关系。");
+            "\n请复制此链接到浏览器打开，下载并安装 App，首次注册即可自动绑定邀请关系。");
         activity.startActivity(Intent.createChooser(send, "分享邀请码"));
     }
 
