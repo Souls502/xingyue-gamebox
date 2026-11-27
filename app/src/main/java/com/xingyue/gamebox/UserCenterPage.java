@@ -199,50 +199,6 @@ public class UserCenterPage {
         TextView arrow = text("›", 34, 0xFFE6C8FF);
         userTop.addView(arrow);
 
-        View line = new View(activity);
-        line.setBackgroundColor(0xFF9D6BDB);
-        LinearLayout.LayoutParams lineParams =
-            new LinearLayout.LayoutParams(-1, dp(1));
-        lineParams.topMargin = dp(17);
-        lineParams.bottomMargin = dp(12);
-        userCard.addView(line, lineParams);
-
-        LinearLayout stats = new LinearLayout(activity);
-        stats.setGravity(Gravity.CENTER);
-        userCard.addView(stats);
-
-        // 余额功能尚未开放，暂不读取或展示旧积分
-        addStat(stats, "我的余额", "暂未开通");
-
-        // 余额提现横向菜单
-LinearLayout member = new LinearLayout(activity);
-member.setGravity(Gravity.CENTER_VERTICAL);
-member.setOrientation(LinearLayout.HORIZONTAL);
-member.setPadding(dp(20), dp(12), dp(20), dp(12));
-member.setBackground(gradient(
-    0xFF7B32D5, 0xFF39146F, 18
-));
-
-LinearLayout.LayoutParams memberParams =
-    new LinearLayout.LayoutParams(-1, dp(75));
-memberParams.topMargin = dp(20);
-root.addView(member, memberParams);
-
-TextView memberTitle = text("余额提现", 19, WHITE);
-memberTitle.setTypeface(null, Typeface.BOLD);
-member.addView(memberTitle);
-
-TextView memberArrow = text(">", 24, WHITE);
-LinearLayout.LayoutParams arrowParams =
-    new LinearLayout.LayoutParams(-2, -2);
-arrowParams.leftMargin = dp(8);
-member.addView(memberArrow, arrowParams);
-
-member.setOnClickListener(v ->
-    showMessage("余额提现",
-        "余额提现功能正在开发中，敬请期待。")
-);
-
         // 两列功能区
         LinearLayout row1 = createMenuRow(root);
 
