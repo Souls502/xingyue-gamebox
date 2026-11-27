@@ -44,6 +44,9 @@ public class MainActivity extends Activity {
 
     ArrayList<Game> games = new ArrayList<>();
 
+        String latestAnnouncementTitle = "";
+    String latestAnnouncementContent = "";
+
     UserAuth userAuth;
 
     TextView gameActionButton;
@@ -107,9 +110,10 @@ Game currentDetailGame;
         getWindow().setStatusBarColor(purple);
         getWindow().setNavigationBarColor(purple);
 
-        home();
+                home();
         loadGames();
         checkForUpdate();
+        loadAnnouncements();
     }
 
         // 首次启动时读取网页下载按钮复制的安装识别码。
