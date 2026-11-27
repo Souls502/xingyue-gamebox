@@ -1932,7 +1932,7 @@ startActivity(intent);
         if (userAuth.getUserId().isEmpty()) {
     new AlertDialog.Builder(this)
         .setTitle("需要登录")
-        .setMessage("登录后才能购买游戏。")
+        .setMessage("请先点击用户中心一键注册账号，再购买游戏。")
         .setPositiveButton("知道了", null)
         .show();
     return;
@@ -1955,7 +1955,7 @@ startActivity(intent);
         if (userAuth.getUserId().isEmpty()) {
             new AlertDialog.Builder(this)
                 .setTitle("需要登录")
-                .setMessage("登录后才能购买游戏。")
+                .setMessage("请先点击用户中心一键注册账号，再购买游戏。")
                 .setPositiveButton("知道了", null)
                 .show();
             return;
