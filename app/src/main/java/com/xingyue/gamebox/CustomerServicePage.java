@@ -193,6 +193,8 @@ public class CustomerServicePage {
                     }
 
                     loadMessages(true);
+                                        handler.removeCallbacks(pollTask);
+                    handler.postDelayed(pollTask, 5000);
                 });
 
             } catch (Exception e) {
@@ -214,15 +216,8 @@ public class CustomerServicePage {
 
         new Thread(() -> {
             try {
-                JSONObject result = request(
-                        "GET", "/support/v1/messages", null);
-
-                JSONArray messages = result.optJSONArray("messages");
-                if (messages == null) {
-                    messages = new JSONArray();
-                }
-
-                JSONArray finalMessages = messages;
+                                JSONArray finalMessages = requestArray(
+                        "GET", "/support/v1/messages");
 
                 activity.runOnUiThread(() -> {
                     if (closed) return;
@@ -384,6 +379,51 @@ public class CustomerServicePage {
             }
         }
     }
+
+        private JSONArray requestArray(
+            String method,
+            String path) throws Exception {
+
+        String token = auth.getValidAccessToken();
+
+        if (token == null || token.trim().isEmpty()) {
+            throw new Exception("登录已失效");
+        }
+
+        HttpURLConnection connection = null;
+
+        try {
+            URL url = new URL(BASE + path);
+            connection = (HttpURLConnection) url.openConnection();
+
+            connection.setRequestMethod(method);
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(15000);
+            connection.setRequestProperty(
+                    "Authorization", "Bearer " + token);
+            connection.setRequestProperty(
+                    "Accept", "application/json");
+
+            int code = connection.getResponseCode();
+
+            InputStream stream = code >= 200 && code < 300
+                    ? connection.getInputStream()
+                    : connection.getErrorStream();
+
+            String response = readStream(stream);
+
+            if (code < 200 || code >= 300) {
+                throw new Exception("HTTP " + code + ": " + response);
+            }
+
+            return new JSONArray(response);
+
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+        }
 
     private String readStream(InputStream stream) throws Exception {
         if (stream == null) return "";
