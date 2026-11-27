@@ -132,6 +132,12 @@ bindInvite.setOnClickListener(v -> showBindInviteDialog());
         Button chooseQr = button("选择并上传微信收款码");
         chooseQr.setOnClickListener(v -> chooseQr());
 
+        TextView qrHint = text("（请先上传微信收款码再提现）", 13, MUTED);
+LinearLayout.LayoutParams qrHintP =
+        new LinearLayout.LayoutParams(-1, -2);
+qrHintP.topMargin = dp(4);
+content.addView(qrHint, qrHintP);
+
         Button withdraw = button("申请提现");
         withdraw.setOnClickListener(v -> showWithdrawDialog());
 
@@ -163,6 +169,12 @@ bindInvite.setOnClickListener(v -> showBindInviteDialog());
                 JSONObject summary = request("GET", "/referral/v1/summary", null, null);
                 JSONArray withdrawals = requestArray("/referral/v1/withdrawals");
                 activity.runOnUiThread(() -> {
+                    
+                    qrImageKey = summary.optString("qr_image_key", "");
+qrView.setText(qrImageKey.isEmpty()
+        ? "尚未上传收款码"
+        : "收款码已上传 ✓");
+                    
                     String invite = summary.optString("invite_code", "—");
                     int invited = summary.optInt("invited_count", 0);
                     long available = summary.optLong("available_cents", 0);
