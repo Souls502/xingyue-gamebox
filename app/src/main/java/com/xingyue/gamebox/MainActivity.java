@@ -102,12 +102,61 @@ Game currentDetailGame;
 
         userAuth = new UserAuth(this);
 
+        captureInstallCodeFromClipboard();
+
         getWindow().setStatusBarColor(purple);
         getWindow().setNavigationBarColor(purple);
 
         home();
         loadGames();
         checkForUpdate();
+    }
+
+        // 首次启动时读取网页下载按钮复制的安装识别码。
+    private void captureInstallCodeFromClipboard() {
+        if (userAuth == null ||
+            !userAuth.getPendingInstallCode().isEmpty()) {
+            return;
+        }
+
+        try {
+            android.content.ClipboardManager clipboard =
+                (android.content.ClipboardManager)
+                getSystemService(CLIPBOARD_SERVICE);
+
+            if (clipboard == null ||
+                !clipboard.hasPrimaryClip()) {
+                return;
+            }
+
+            android.content.ClipData clip =
+                clipboard.getPrimaryClip();
+
+            if (clip == null || clip.getItemCount() == 0) {
+                return;
+            }
+
+            CharSequence text =
+                clip.getItemAt(0).coerceToText(this);
+
+            if (text == null) return;
+
+            String code = text.toString().trim();
+
+            if (code.matches(
+                "(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            )) {
+                userAuth.setPendingInstallCode(code);
+
+                Toast.makeText(
+                    this,
+                    "已识别邀请安装信息，注册时将自动绑定邀请人",
+                    Toast.LENGTH_LONG
+                ).show();
+            }
+
+        } catch (Exception ignored) {
+        }
     }
 
     // 全局固定底部导航
