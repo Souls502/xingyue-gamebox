@@ -31,6 +31,42 @@ public class UserAuth {
         );
     }
 
+    // 安装邀请识别码单独保存，退出登录时不会被清除。
+    private SharedPreferences installPrefs() {
+        return context.getSharedPreferences(
+            "xingyue_install_referral", Context.MODE_PRIVATE
+        );
+    }
+
+    // 保存待提交的安装识别码。
+    public void setPendingInstallCode(String code) {
+        if (code == null) return;
+
+        String value = code.trim();
+
+        if (value.matches(
+            "(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        )) {
+            installPrefs().edit()
+                .putString("pending_install_code", value)
+                .apply();
+        }
+    }
+
+    // 获取待提交的安装识别码。
+    public String getPendingInstallCode() {
+        return installPrefs().getString(
+            "pending_install_code", ""
+        );
+    }
+
+    // 注册成功后清除安装识别码。
+    public void clearPendingInstallCode() {
+        installPrefs().edit()
+            .remove("pending_install_code")
+            .apply();
+    }
+
     public boolean isLoggedIn() {
         return !prefs().getString(
             "access_token", ""
@@ -74,9 +110,17 @@ public class UserAuth {
     public OneTapResult oneTapRegister()
             throws Exception {
 
+        JSONObject signupBody = new JSONObject();
+
+        String pendingInstallCode = getPendingInstallCode();
+
+        if (!pendingInstallCode.isEmpty()) {
+            signupBody.put("install_code", pendingInstallCode);
+        }
+
         JSONObject result = request(
             "/auth/v1/signup/one-tap",
-            new JSONObject(),
+            signupBody,
             null
         );
 
@@ -123,6 +167,9 @@ public class UserAuth {
         prefs().edit()
             .putString("xingyue_account", account)
             .apply();
+
+        // 注册和登录信息保存成功后清除安装识别码。
+        clearPendingInstallCode();
 
         return new OneTapResult(account, password);
     }
@@ -270,16 +317,23 @@ public class UserAuth {
             }
         }
 
+        // 只清除登录信息，不清除尚未使用的安装识别码。
         prefs().edit().clear().apply();
     }
 
-    // 邮箱注册，保留原有功能。
+    // 邮箱注册，保留原有功能并提交安装识别码。
     public String signUp(String email, String password)
             throws Exception {
 
         JSONObject body = new JSONObject();
         body.put("email", email);
         body.put("password", password);
+
+        String pendingInstallCode = getPendingInstallCode();
+
+        if (!pendingInstallCode.isEmpty()) {
+            body.put("install_code", pendingInstallCode);
+        }
 
         JSONObject result = request(
             "/auth/v1/signup",
@@ -289,6 +343,10 @@ public class UserAuth {
 
         if (!result.optString("access_token", "").isEmpty()) {
             saveSession(result, email);
+
+            // 注册和登录信息保存成功后清除安装识别码。
+            clearPendingInstallCode();
+
             return "注册成功，已自动登录。";
         }
 
