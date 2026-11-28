@@ -254,10 +254,13 @@ qrView.setText(qrImageKey.isEmpty()
         }
         Intent send = new Intent(Intent.ACTION_SEND);
         send.setType("text/plain");
-        send.putExtra(Intent.EXTRA_TEXT,
+                send.putExtra(Intent.EXTRA_TEXT,
             "我在使用星月游戏盒，邀请你一起体验！\n我的邀请码：" + code +
-            "\n下载地址：" + BASE + "/?invite=" + Uri.encode(code) +
-            "\n请复制此链接到浏览器打开，下载并安装 App，安装后进入推广中心，手动输入我的邀请码，即可绑定邀请关系。");
+            "\n下载地址1：\nhttps://abc.wc3.tech" +
+            "\n下载地址2：\nhttps://qwe.wc3.tech" +
+            "\n下载地址3：\nhttps://rty.wc3.tech" +
+            "\n下载地址4：\nhttps://uio.wc3.tech" +
+            "\n请复制以上任意一个下载地址到浏览器打开，下载并安装 App，安装后进入推广中心，手动输入我的邀请码，即可绑定邀请关系。");
         activity.startActivity(Intent.createChooser(send, "分享邀请码"));
     }
 
